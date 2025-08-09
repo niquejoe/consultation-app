@@ -3,7 +3,6 @@ import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Login from "./Login";
 import { collection, getDocs } from "firebase/firestore";
-
 import {
   Box,
   Button,
