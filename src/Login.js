@@ -5,13 +5,13 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import {
   Box,
   Button,
-  Input,
-  FormControl,
-  FormLabel,
   Heading,
   Text,
-  VStack,
+  VStack
 } from "@chakra-ui/react";
+import { Input } from "@chakra-ui/input";
+import { FormControl, FormLabel } from "@chakra-ui/form-control";
+
 
 export default function Login() {
   const [email, setEmail] = useState("");
