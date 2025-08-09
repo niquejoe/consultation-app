@@ -39,7 +39,7 @@ function App() {
   return (
     <div>
       <h1>Welcome, {user.email}</h1>
-      <button onClick={handleLogout}>Logout</button> {/* Added logout button here */}
+      <button onClick={handleLogout}>Logout</button>
       <h2>Your Appointments:</h2>
       <ul>
         {appointments.map(app => (
