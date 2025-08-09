@@ -7,11 +7,11 @@ import {
   Button,
   Heading,
   Text,
-  VStack
+  VStack,
+  Input,
+  FormControl,
+  FormLabel
 } from "@chakra-ui/react";
-import { Input } from "@chakra-ui/input";
-import { FormControl, FormLabel } from "@chakra-ui/form-control";
-
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -29,7 +29,15 @@ export default function Login() {
   };
 
   return (
-    <Box maxW="md" mx="auto" mt={10} p={6} borderWidth={1} borderRadius="md" boxShadow="md">
+    <Box
+      maxW="md"
+      mx="auto"
+      mt={10}
+      p={6}
+      borderWidth={1}
+      borderRadius="md"
+      boxShadow="md"
+    >
       <Heading mb={6} textAlign="center">
         Login
       </Heading>
