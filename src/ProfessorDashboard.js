@@ -82,35 +82,21 @@ export default function ProfessorDashboard({ user }) {
     }));
   };
 
-  // Handle time slot changes
-  const handleTimeChange = (day, index, field, value) => {
-    const updatedDay = [...availability[day]];
-    updatedDay[index] = { ...updatedDay[index], [field]: value };
-    setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
-  };
-
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
-      // Get the current date to determine the start of the week (Monday)
-      const currentDate = new Date();
-      const currentDay = currentDate.getDay(); // Get the day of the week (0-6, Sunday-Saturday)
-      const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; // Calculate days to subtract to get Monday
-      const mondayDate = new Date(currentDate.setDate(currentDate.getDate() - diffToMonday)); // Get the date for this week's Monday
-  
       // Iterate through each day in the professor's availability
       for (let day in availability) {
         const slots = availability[day];
         for (let slot of slots) {
-          // Combine Monday's date with the professor's start time to create the full date
-          const timestamp = new Date(mondayDate);  // Clone Monday's date
-          const [hours, minutes] = slot.startTime.split(":");  // Split startTime (e.g., "09:00") into hours and minutes
-          timestamp.setHours(hours, minutes, 0); // Set the hours and minutes on the cloned Monday date
-  
+          // Calculate the next available day (e.g., Monday at 10:00 AM)
+          const nextDay = getNextDayOfWeek(day, slot.startTime);
+          
           const newSlot = {
             professorId: user.uid,
             professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
-            date: timestamp.getTime(),  // Firestore timestamp
+            day: day,  // Store just the day (e.g., "Monday")
+            time: slot.startTime,  // Store the start time (e.g., "10:00 AM")
             durationMins: 30,           // Default to 30 minutes
             mode: slot.consultationType, // in-person or online
             reason: {
@@ -121,6 +107,7 @@ export default function ProfessorDashboard({ user }) {
             reservationType: "individual",  // Default to individual
             status: "available",  // Slot is available for students to book
             createdAt: new Date(), // Current timestamp for creation
+            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date
           };
   
           console.log("Saving new availability slot:", newSlot); // Log data for debugging
@@ -138,7 +125,43 @@ export default function ProfessorDashboard({ user }) {
     } finally {
       setSavingAvailability(false);
     }
-  };  
+  };
+  
+  // Function to calculate the next available date based on the day and time
+  const getNextDayOfWeek = (day, time) => {
+    const today = new Date();
+    const targetDate = new Date(today);
+  
+    // Mapping days to numbers
+    const daysOfWeek = {
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+  
+    // Calculate the difference in days between today and the next selected day
+    const targetDayNumber = daysOfWeek[day];
+    const currentDayNumber = today.getDay();
+  
+    // Calculate the number of days until the next target day (next Monday, etc.)
+    const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
+    targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
+  
+    // Set the correct time (e.g., 10:00 AM)
+    const [hours, minutes] = time.split(":");
+    targetDate.setHours(hours);
+    targetDate.setMinutes(minutes);
+    targetDate.setSeconds(0);
+    targetDate.setMilliseconds(0);
+  
+    return targetDate;
+  };
+  
+  
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
