@@ -89,15 +89,24 @@ export default function ProfessorDashboard({ user }) {
     setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
   };
 
-  // Save availability to Firestore as appointments
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
+      // Get the current date to determine the start of the week (Monday)
+      const currentDate = new Date();
+      const currentDay = currentDate.getDay(); // Get the day of the week (0-6, Sunday-Saturday)
+      const diffToMonday = currentDay === 0 ? 6 : currentDay - 1; // Calculate days to subtract to get Monday
+      const mondayDate = new Date(currentDate.setDate(currentDate.getDate() - diffToMonday)); // Get the date for this week's Monday
+  
       // Iterate through each day in the professor's availability
       for (let day in availability) {
         const slots = availability[day];
         for (let slot of slots) {
-          const timestamp = new Date(`${day}, ${slot.startTime}`);
+          // Combine Monday's date with the professor's start time to create the full date
+          const timestamp = new Date(mondayDate);  // Clone Monday's date
+          const [hours, minutes] = slot.startTime.split(":");  // Split startTime (e.g., "09:00") into hours and minutes
+          timestamp.setHours(hours, minutes, 0); // Set the hours and minutes on the cloned Monday date
+  
           const newSlot = {
             professorId: user.uid,
             professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
@@ -110,18 +119,18 @@ export default function ProfessorDashboard({ user }) {
             },
             requester: null,  // Set to null until a student reserves it
             reservationType: "individual",  // Default to individual
-            status: "available",  // Available slot
+            status: "available",  // Slot is available for students to book
             createdAt: new Date(), // Current timestamp for creation
           };
-
+  
           console.log("Saving new availability slot:", newSlot); // Log data for debugging
-
+  
           // Save the availability slot in Firestore
           const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
           await setDoc(docRef, newSlot);  // Save the document to appointments collection
         }
       }
-
+  
       alert("Availability saved successfully!");
     } catch (e) {
       console.error("Error saving availability:", e); // Log the error for debugging
@@ -129,7 +138,7 @@ export default function ProfessorDashboard({ user }) {
     } finally {
       setSavingAvailability(false);
     }
-  };
+  };  
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
