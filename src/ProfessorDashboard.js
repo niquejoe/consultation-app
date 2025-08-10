@@ -1,7 +1,9 @@
 // src/ProfessorDashboard.jsx
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+//import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+
 
 export default function ProfessorDashboard() {
   const [appointments, setAppointments] = useState([]);
@@ -11,7 +13,13 @@ export default function ProfessorDashboard() {
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        const q = query(collection(db, "appointments"), orderBy("date", "desc"));
+        //const q = query(collection(db, "appointments"), orderBy("date", "desc"));
+        const q = query(
+            collection(db, "appointments"),
+            where("professorId", "==", user.uid),
+            where("status", "in", ["pending", "confirmed", "rejected"]),
+            orderBy("date", "desc")
+          );
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
         setAppointments(list);
