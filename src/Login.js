@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { auth } from "./firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import logo from "./assets/logo.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,8 +22,12 @@ export default function Login() {
   return (
     <div style={styles.container}>
       <form onSubmit={handleLogin} style={styles.form}>
-        <h2 style={styles.title}>Consultation WebApp</h2>
-        <h4 style={styles.title}>College of Information and Communications Technology</h4>
+        <img
+            src="{logo}"
+            alt="CICT Logo"
+            style={styles.logo}
+        />
+        <h2 style={styles.title}>CICT Consultation WebApp</h2>
         <input
           type="email"
           placeholder="Email"
@@ -95,4 +100,10 @@ const styles = {
     textAlign: "center",
     marginTop: "0.5rem",
   },
+  logo: {
+    display: "block",
+    margin: "0 auto 1.5rem",
+    width: "100px",
+    height: "auto",
+  }
 };
