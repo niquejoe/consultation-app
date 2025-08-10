@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore";  // <-- added updateDoc here
+import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc, getDoc } from "firebase/firestore";
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -40,9 +40,29 @@ export default function ProfessorDashboard({ user }) {
   };
 
   useEffect(() => {
-    load();
+    load();  // Load appointments
+    loadAvailability();  // Load availability from Firestore
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Load professor's availability from Firestore
+  const loadAvailability = async () => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, "schedules", user.uid); // Use the user's UID to get their availability
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        setAvailability(docSnap.data()); // Set the availability state with the fetched data
+      } else {
+        console.log("No availability data found for this professor.");
+      }
+    } catch (e) {
+      console.error("Error loading availability: ", e);
+      setError("Failed to load availability.");
+    }
+  };
 
   // Set the status of appointments
   const setStatus = async (id, next) => {
@@ -82,7 +102,6 @@ export default function ProfessorDashboard({ user }) {
       return { ...prev, [day]: updatedDay };  // Update availability for that day
     });
   };
-  
 
   // Handle time slot changes
   const handleTimeChange = (day, index, field, value) => {
@@ -110,8 +129,6 @@ export default function ProfessorDashboard({ user }) {
       setSavingAvailability(false);
     }
   };
-  
- 
 
   // Function to calculate the next available date based on the day and time
   const getNextDayOfWeek = (day, time) => {
