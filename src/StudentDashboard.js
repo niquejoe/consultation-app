@@ -126,48 +126,47 @@ export default function StudentDashboard({ user }) {
             No available slots right now.
           </div>
         )}
-
+        
         {!loading && slots.length > 0 && (
-          <div className="overflow-x-auto bg-white border rounded">
+            <div className="overflow-x-auto bg-white border rounded">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 text-gray-700">
+                <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-left">Date & Time</th>
-                  <th className="px-4 py-3 text-left">Professor</th>
-                  <th className="px-4 py-3 text-left">Topic</th>
-                  <th className="px-4 py-3 text-left">Mode</th>
-                  <th className="px-4 py-3 text-left">Action</th>
+                    <th className="px-4 py-3 text-left">Professor Name</th>
+                    <th className="px-4 py-3 text-left">Department</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Action</th>
                 </tr>
-              </thead>
-              <tbody>
+                </thead>
+                <tbody>
                 {slots.map((s) => {
-                  const dt = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date(s.date);
-                  const disabled = reservingId === s.id;
-                  return (
+                    const dt = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date(s.date);
+                    const disabled = reservingId === s.id;
+                    return (
                     <tr key={s.id} className="border-t">
-                      <td className="px-4 py-3">{dt.toLocaleString()}</td>
-                      <td className="px-4 py-3">{s.professorName || "—"}</td>
-                      <td className="px-4 py-3">{s.topic || "General Consultation"}</td>
-                      <td className="px-4 py-3">{s.mode || "—"}</td>
-                      <td className="px-4 py-3">
+                        <td className="px-4 py-3">{s.professorName || "—"}</td>
+                        <td className="px-4 py-3">{s.department || "—"}</td>
+                        <td className="px-4 py-3">{s.status || "Available"}</td>
+                        <td className="px-4 py-3">
                         <button
-                          disabled={disabled}
-                          onClick={() => openReserve(s)}
-                          className={`rounded-md px-3 py-1.5 text-sm transition
+                            disabled={disabled}
+                            onClick={() => openReserve(s)}
+                            className={`rounded-md px-3 py-1.5 text-sm transition
                             ${disabled
-                              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                              : "bg-[#f37021] hover:bg-[#d35616] text-white"}`}
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                : "bg-[#f37021] hover:bg-[#d35616] text-white"}`}
                         >
-                          {disabled ? "Opening…" : "Reserve"}
+                            {disabled ? "Opening…" : "Schedule"}
                         </button>
-                      </td>
+                        </td>
                     </tr>
-                  );
+                    );
                 })}
-              </tbody>
+                </tbody>
             </table>
-          </div>
+            </div>
         )}
+
       </div>
 
       {/* Modal */}
