@@ -52,7 +52,7 @@ export default function StudentDashboard({ user }) {
         });
       });
   
-      // Wait for all professor details to be fetched
+      // Wait for all professor details to be fetched (using Promise.all for concurrent fetching)
       const professorDetailsSnapshots = await Promise.all(professorDetailsPromises);
   
       // Add professor name and other details to each slot
@@ -74,6 +74,7 @@ export default function StudentDashboard({ user }) {
       setLoading(false);
     }
   };
+  
   
 
   useEffect(() => {
