@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { auth } from "./firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import logo from "./assets/logo.png";
+import logo from "./assets/img/logo.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
