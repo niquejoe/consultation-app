@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { setDoc, doc, getDoc } from "firebase/firestore"; // For saving and loading data
+import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore"; // <-- added updateDoc here
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -17,7 +17,7 @@ export default function ProfessorDashboard({ user }) {
   const [savingAvailability, setSavingAvailability] = useState(false);
 
   // Load professor's appointments
-  const loadAppointments = async () => {
+  const load = async () => {
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -40,7 +40,7 @@ export default function ProfessorDashboard({ user }) {
   };
 
   useEffect(() => {
-    loadAppointments();
+    load();
     loadAvailability();  // Load availability data when the component is mounted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -90,6 +90,24 @@ export default function ProfessorDashboard({ user }) {
       setError("Failed to save availability.");
     } finally {
       setSavingAvailability(false);
+    }
+  };
+
+  // Set the status of appointments (approve or reject)
+  const setStatus = async (id, next) => {
+    setError(null);
+    setActingId(id);
+    try {
+      await updateDoc(doc(db, "appointments", id), { status: next });
+      // Optimistic local update
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status: next } : a))
+      );
+    } catch (e) {
+      console.error(e);
+      setError("Action failed. Please try again.");
+    } finally {
+      setActingId(null);
     }
   };
 
