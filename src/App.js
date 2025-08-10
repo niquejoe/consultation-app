@@ -1,44 +1,52 @@
-import React from "react";
-import {
-  ChakraProvider,
-  Box,
-  Button,
-  Heading,
-  Text,
-  VStack,
-  Input
-} from "@chakra-ui/react";
-
-import { FormControl, FormLabel } from "@chakra-ui/form-control";
+import React, { useEffect, useState } from "react";
+import { auth, db } from "./firebaseConfig";
+import { onAuthStateChanged, signOut } from "firebase/auth";  // <-- Added signOut here
+import Login from "./Login";
+import { collection, getDocs } from "firebase/firestore";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchAppointments = async () => {
+      const snapshot = await getDocs(collection(db, "appointments"));
+      setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    };
+
+    fetchAppointments();
+  }, [user]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  if (!user) return <Login />;
+
   return (
-    <ChakraProvider>
-      <Box p={8} maxW="400px" mx="auto" mt={10} borderWidth="1px" borderRadius="lg">
-        <VStack spacing={4} align="stretch">
-          <Heading as="h1" size="lg" textAlign="center">
-            Consultation Form
-          </Heading>
-          <Text textAlign="center" color="gray.600">
-            Please fill out your details
-          </Text>
-
-          <FormControl>
-            <FormLabel>Name</FormLabel>
-            <Input placeholder="Enter your name" />
-          </FormControl>
-
-          <FormControl>
-            <FormLabel>Email</FormLabel>
-            <Input type="email" placeholder="Enter your email" />
-          </FormControl>
-
-          <Button colorScheme="teal" type="submit">
-            Submit
-          </Button>
-        </VStack>
-      </Box>
-    </ChakraProvider>
+    <div>
+      <h1>Welcome, {user.email}</h1>
+      <button onClick={handleLogout}>Logout</button>
+      <h2>Your Appointments:</h2>
+      <ul>
+        {appointments.map(app => (
+          <li key={app.id}>{app.subject || "No subject"}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
