@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
-  const [slots, setSlots] = useState([]);
+  const [slots, setSlots] = useState([]);  // All available slots from all professors
   const [loading, setLoading] = useState(true);
   const [reservingId, setReservingId] = useState(null);
   const [error, setError] = useState(null);
@@ -22,40 +22,43 @@ export default function StudentDashboard({ user }) {
     setError(null);
     setOk(null);
     try {
-      // Fetch the user's data using user.uid as the document ID in the users collection
-      const userSnap = await getDoc(doc(db, "users", user.uid));
-  
-      if (!userSnap.exists()) {
-        throw new Error("User not found");
+      // Fetch all schedules from the 'schedules' collection for all professors
+      const schedulesRef = collection(db, "schedules");  // Reference to the schedules collection
+      const schedulesSnap = await getDocs(schedulesRef);  // Get all documents in the collection
+
+      if (schedulesSnap.empty) {
+        setError("No schedules found for professors.");
+        return;
       }
-  
-      // The `user.uid` is now used directly to access the `schedules` collection
-      const scheduleRef = doc(db, "schedules", user.uid); // Use user.uid as the document ID in schedules
-      const scheduleSnap = await getDoc(scheduleRef);
-  
-      if (!scheduleSnap.exists()) {
-        throw new Error("Schedule not found");
-      }
-  
-      const scheduleData = scheduleSnap.data(); // This contains the schedule for the user
-      const formattedSlots = Object.entries(scheduleData).map(([day, times]) => ({
-        day,
-        times, // Array of time slots for that day
-      }));
-  
-      setSlots(formattedSlots); // Format and set the slots
+
+      const allSlots = [];
+      schedulesSnap.forEach((doc) => {
+        const scheduleData = doc.data();
+        const professorId = doc.id;  // Use the document ID as the professor's ID
+
+        // Format the schedule data for easy display (e.g., "Monday: AM, PM")
+        Object.entries(scheduleData).forEach(([day, times]) => {
+          allSlots.push({
+            professorId,
+            professorName: professorId,  // Placeholder for professor's name, update with real name later
+            day,
+            times,
+          });
+        });
+      });
+
+      setSlots(allSlots);  // Store all the available slots
     } catch (e) {
       console.error(e);
-      setError(e.message || "Failed to load slots.");
+      setError("Failed to load schedules.");
     } finally {
       setLoading(false);
     }
   };
-  
 
   useEffect(() => {
-    load();
-  }, [user]);
+    load();  // Load the schedules when the component mounts
+  }, []);
 
   const openReserve = (slot) => {
     setActiveSlot(slot);
@@ -89,14 +92,13 @@ export default function StudentDashboard({ user }) {
     setReservingId(activeSlot.id);
 
     try {
-      // fetch student's full name from users/{uid} (fallback to displayName/email)
+      // Fetch student's full name from users/{uid} (fallback to displayName/email)
       const userSnap = await getDoc(doc(db, "users", user.uid));
       const studentName = userSnap.exists()
         ? (userSnap.data().name || user.displayName || user.email)
         : (user.displayName || user.email);
 
       // Assuming you want to store the reservation in a different collection or update the schedule
-      // Placeholder for the logic that will update the schedule with the reservation
       const payload = {
         status: "pending",
         requester: {
@@ -112,10 +114,9 @@ export default function StudentDashboard({ user }) {
         },
       };
 
-      // Update the schedule or reservation (example, modify it based on your setup)
       setOk("Reservation sent. Waiting for professor approval.");
       closeModal();
-      await load(); // refresh list so this slot disappears
+      await load(); // Refresh list after reservation
     } catch (e) {
       console.error(e);
       setError(e.code + ": " + (e.message || "Could not reserve this slot."));
@@ -147,6 +148,7 @@ export default function StudentDashboard({ user }) {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
+                  <th className="px-4 py-3 text-left">Professor Name</th>
                   <th className="px-4 py-3 text-left">Day</th>
                   <th className="px-4 py-3 text-left">Time Slots</th>
                   <th className="px-4 py-3 text-left">Action</th>
@@ -155,11 +157,10 @@ export default function StudentDashboard({ user }) {
               <tbody>
                 {slots.map((slot) => {
                   return (
-                    <tr key={slot.day} className="border-t">
+                    <tr key={`${slot.professorId}-${slot.day}`} className="border-t">
+                      <td className="px-4 py-3">{slot.professorName || "—"}</td>
                       <td className="px-4 py-3">{slot.day}</td>
-                      <td className="px-4 py-3">
-                        {slot.times.join(", ")}
-                      </td>
+                      <td className="px-4 py-3">{slot.times.join(", ")}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openReserve(slot)}
