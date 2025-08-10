@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
 import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  doc,
-  updateDoc,
-  getDoc
+  collection, getDocs, query, where, orderBy,
+  doc, updateDoc, getDoc
 } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
@@ -26,7 +20,6 @@ export default function StudentDashboard({ user }) {
   const [topic, setTopic] = useState("General Consultation");
   const [thesisTitle, setThesisTitle] = useState("");
 
-  // Load available slots
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -66,7 +59,7 @@ export default function StudentDashboard({ user }) {
   const submitReservation = async (e) => {
     e.preventDefault();
     if (!activeSlot) return;
-  
+
     if (reservationType === "group" && (!groupSize || Number(groupSize) < 2)) {
       setError("Group size must be at least 2.");
       return;
@@ -75,21 +68,21 @@ export default function StudentDashboard({ user }) {
       setError("Please enter a thesis title.");
       return;
     }
-  
+
     setError(null);
     setOk(null);
     setReservingId(activeSlot.id);
-  
+
     try {
-      // Fetch student's full name from users/{uid}
+      // fetch student's full name from users/{uid} (fallback to displayName/email)
       const userSnap = await getDoc(doc(db, "users", user.uid));
       const studentName = userSnap.exists()
         ? (userSnap.data().name || user.displayName || user.email)
         : (user.displayName || user.email);
-  
+
       const ref = doc(db, "appointments", activeSlot.id);
       const payload = {
-        status: "pending",  // Change status to "pending"
+        status: "pending",
         requester: {
           uid: user.uid,
           email: user.email,
@@ -102,12 +95,12 @@ export default function StudentDashboard({ user }) {
           ...(topic === "Thesis Consultation" ? { thesisTitle: thesisTitle.trim() } : {}),
         },
       };
-  
-      await updateDoc(ref, payload);  // Update the Firestore document
-  
+
+      await updateDoc(ref, payload);
+
       setOk("Reservation sent. Waiting for professor approval.");
       closeModal();
-      await load(); // Refresh list so this slot disappears
+      await load(); // refresh list so this slot disappears
     } catch (e) {
       console.error(e);
       setError(e.code + ": " + (e.message || "Could not reserve this slot."));
