@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, setDoc, getDoc } from "firebase/firestore"; // <-- Ensure getDoc is imported
+import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore";  // <-- added updateDoc here
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -41,59 +41,10 @@ export default function ProfessorDashboard({ user }) {
 
   useEffect(() => {
     load();
-    loadAvailability();  // Load availability data when the component is mounted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Load professor's availability from Firestore
-  const loadAvailability = async () => {
-    if (!user) return;
-    try {
-      const docRef = doc(db, "schedules", user.uid); // Use professor's uid as the document ID
-      const docSnap = await getDoc(docRef); // Corrected: use getDoc to load the document
-      if (docSnap.exists()) {
-        setAvailability(docSnap.data()); // Update availability with data from Firestore
-      }
-    } catch (e) {
-      console.error("Error loading availability: ", e);
-      setError("Failed to load availability.");
-    }
-  };
-
-  // Handle time slot changes for each day
-  const handleTimeChange = (day, index, field, value) => {
-    const updatedDay = [...availability[day]];
-    updatedDay[index] = { ...updatedDay[index], [field]: value };
-    setAvailability((prevState) => ({ ...prevState, [day]: updatedDay }));
-  };
-
-  // Add a time slot for availability
-  const addTimeSlot = (day) => {
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: [
-        ...prev[day],
-        { startTime: "", endTime: "", consultationType: "in-person" },
-      ],
-    }));
-  };
-
-  // Save availability to Firestore
-  const handleSubmitAvailability = async () => {
-    setSavingAvailability(true);
-    try {
-      const professorRef = doc(db, "schedules", user.uid); // Reference to the professor's availability document
-      await setDoc(professorRef, availability, { merge: true }); // Save or update availability data (merge to avoid overwriting)
-      alert("Availability saved successfully!");
-    } catch (e) {
-      console.error("Error saving availability: ", e);
-      setError("Failed to save availability.");
-    } finally {
-      setSavingAvailability(false);
-    }
-  };
-
-  // Set the status of appointments (approve or reject)
+  // Set the status of appointments
   const setStatus = async (id, next) => {
     setError(null);
     setActingId(id);
@@ -109,6 +60,105 @@ export default function ProfessorDashboard({ user }) {
     } finally {
       setActingId(null);
     }
+  };
+
+  // Add a time slot for availability
+  const addTimeSlot = (day) => {
+    setAvailability((prev) => ({
+      ...prev,
+      [day]: [
+        ...prev[day],
+        { startTime: "", endTime: "", consultationType: "in-person" },
+      ],
+    }));
+  };
+
+  // Handle time slot changes
+  const handleTimeChange = (day, index, field, value) => {
+    const updatedDay = [...availability[day]];
+    updatedDay[index] = { ...updatedDay[index], [field]: value };
+    setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
+  };
+
+  // Save availability to Firestore as appointments
+  const handleSubmitAvailability = async () => {
+    setSavingAvailability(true);
+    try {
+      // Iterate through each day in the professor's availability
+      for (let day in availability) {
+        const slots = availability[day];
+        for (let slot of slots) {
+          // Calculate the next available day (e.g., Monday at 10:00 AM)
+          const nextDay = getNextDayOfWeek(day, slot.startTime);
+
+          const newSlot = {
+            professorId: user.uid,
+            professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
+            day: day,  // Store just the day (e.g., "Monday")
+            time: slot.startTime,  // Store the start time (e.g., "13:00")
+            durationMins: 30,           // Default to 30 minutes
+            mode: slot.consultationType, // in-person or online
+            reason: {
+              topic: "General Consultation", // Default topic
+              thesisTitle: "",                // Leave empty for now
+            },
+            requester: null,  // Set to null until a student reserves it
+            reservationType: "individual",  // Default to individual
+            status: "available",  // Slot is available for students to book
+            createdAt: new Date(), // Current timestamp for creation
+            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date (as a timestamp)
+            date: nextDay,  // Store as Firestore Timestamp object
+          };
+
+          console.log("Saving new availability slot:", newSlot); // Log data for debugging
+
+          // Save the availability slot in Firestore
+          const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
+          await setDoc(docRef, newSlot);  // Save the document to appointments collection
+        }
+      }
+
+      alert("Availability saved successfully!");
+    } catch (e) {
+      console.error("Error saving availability:", e); // Log the error for debugging
+      setError("Failed to save availability.");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  // Function to calculate the next available date based on the day and time
+  const getNextDayOfWeek = (day, time) => {
+    const today = new Date();
+    const targetDate = new Date(today);
+
+    // Mapping days to numbers
+    const daysOfWeek = {
+      Sunday: 0,
+      Monday: 1,
+      Tuesday: 2,
+      Wednesday: 3,
+      Thursday: 4,
+      Friday: 5,
+      Saturday: 6,
+    };
+
+    // Calculate the difference in days between today and the next selected day
+    const targetDayNumber = daysOfWeek[day];
+    const currentDayNumber = today.getDay();
+
+    // Calculate the number of days until the next target day (next Monday, etc.)
+    const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
+    targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
+
+    // Set the correct time (e.g., 13:00)
+    const [hours, minutes] = time.split(":");
+    targetDate.setHours(hours);
+    targetDate.setMinutes(minutes);
+    targetDate.setSeconds(0);
+    targetDate.setMilliseconds(0);
+
+    return targetDate;
   };
 
   return (
@@ -159,6 +209,9 @@ export default function ProfessorDashboard({ user }) {
                     ? `Group${app.group?.size ? ` (${app.group.size})` : ""}${app.group?.name ? ` — ${app.group.name}` : ""}`
                     : "Individual";
 
+                const isPending = app.status === "pending";
+                const disabled = actingId === app.id;
+
                 return (
                   <tr key={app.id} className="border-t">
                     <td className="px-4 py-3">{dt ? dt.toLocaleString() : "—"}</td>
@@ -177,24 +230,26 @@ export default function ProfessorDashboard({ user }) {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {app.status === "pending" && (
-                          <>
-                            <button
-                              onClick={() => setStatus(app.id, "confirmed")}
-                              className="rounded-md px-3 py-1.5 text-sm bg-green-500 text-white"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => setStatus(app.id, "rejected")}
-                              className="rounded-md px-3 py-1.5 text-sm border border-gray-300"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {isPending ? (
+                        <div className="flex gap-2">
+                          <button
+                            disabled={disabled}
+                            onClick={() => setStatus(app.id, "confirmed")}
+                            className={`rounded-md px-3 py-1.5 text-sm transition ${disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#2e7d32] hover:bg-[#1b5e20] text-white"}`}
+                          >
+                            {disabled ? "Saving…" : "Approve"}
+                          </button>
+                          <button
+                            disabled={disabled}
+                            onClick={() => setStatus(app.id, "rejected")}
+                            className={`rounded-md px-3 py-1.5 text-sm border transition ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                   </tr>
                 );
