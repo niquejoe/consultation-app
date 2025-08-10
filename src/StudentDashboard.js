@@ -66,7 +66,7 @@ export default function StudentDashboard({ user }) {
   const submitReservation = async (e) => {
     e.preventDefault();
     if (!activeSlot) return;
-
+  
     if (reservationType === "group" && (!groupSize || Number(groupSize) < 2)) {
       setError("Group size must be at least 2.");
       return;
@@ -75,22 +75,22 @@ export default function StudentDashboard({ user }) {
       setError("Please enter a thesis title.");
       return;
     }
-
+  
     setError(null);
     setOk(null);
     setReservingId(activeSlot.id);
-
+  
     try {
-      // fetch student's full name from users/{uid} (fallback to displayName/email)
+      // Fetch student's full name from users/{uid}
       const userSnap = await getDoc(doc(db, "users", user.uid));
       const studentName = userSnap.exists()
         ? (userSnap.data().name || user.displayName || user.email)
         : (user.displayName || user.email);
-
+  
       const ref = doc(db, "appointments", activeSlot.id);
       const payload = {
-        status: "pending", // Change status to "pending"
-        requester: {       // Populate the requester field with the student's info
+        status: "pending",  // Change status to "pending"
+        requester: {
           uid: user.uid,
           email: user.email,
           name: studentName,
@@ -102,9 +102,9 @@ export default function StudentDashboard({ user }) {
           ...(topic === "Thesis Consultation" ? { thesisTitle: thesisTitle.trim() } : {}),
         },
       };
-
-      await updateDoc(ref, payload); // Update the Firestore document
-
+  
+      await updateDoc(ref, payload);  // Update the Firestore document
+  
       setOk("Reservation sent. Waiting for professor approval.");
       closeModal();
       await load(); // Refresh list so this slot disappears
