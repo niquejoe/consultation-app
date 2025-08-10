@@ -25,6 +25,7 @@ export default function ProfessorDashboard({ user }) {
   });
   const [savingAvailability, setSavingAvailability] = useState(false);
 
+  // Load professor's appointments
   const load = async () => {
     if (!user) return;
     setLoading(true);
@@ -52,6 +53,7 @@ export default function ProfessorDashboard({ user }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // Set the status of appointments
   const setStatus = async (id, next) => {
     setError(null);
     setActingId(id);
@@ -69,22 +71,25 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
+  // Add a time slot for availability
   const addTimeSlot = (day) => {
     setAvailability((prev) => ({
       ...prev,
       [day]: [
         ...prev[day],
-        { startTime: "", endTime: "", consultationType: "Face-to-Face" },
+        { startTime: "", endTime: "", consultationType: "in-person" },
       ],
     }));
   };
 
+  // Handle time slot changes
   const handleTimeChange = (day, index, field, value) => {
     const updatedDay = [...availability[day]];
     updatedDay[index] = { ...updatedDay[index], [field]: value };
     setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
   };
 
+  // Save availability to Firestore as appointments
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
@@ -92,31 +97,34 @@ export default function ProfessorDashboard({ user }) {
       for (let day in availability) {
         const slots = availability[day];
         for (let slot of slots) {
-          // Create an availability appointment for each slot
+          const timestamp = new Date(`${day}, ${slot.startTime}`);
           const newSlot = {
             professorId: user.uid,
-            professorName: "Dr. Nikie Jo E. Deocampo",  // Or get dynamically if needed
-            date: new Date(`${day}, ${slot.startTime}`).toISOString(), // Combine the day with startTime for full date
-            durationMins: 30, // Example: You can customize this
-            mode: slot.consultationType, // Face-to-Face or Online
+            professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
+            date: timestamp.getTime(),  // Firestore timestamp
+            durationMins: 30,           // Default to 30 minutes
+            mode: slot.consultationType, // in-person or online
             reason: {
-              topic: "General Consultation", // You can modify based on specific professor preferences
-              thesisTitle: "",  // Leave empty or use relevant data if needed
+              topic: "General Consultation", // Default topic
+              thesisTitle: "",                // Leave empty for now
             },
-            requester: null, // This will be null for available slots until a student reserves it
-            reservationType: "individual", // Default to individual, modify if needed
-            status: "available", // Availability status
-            createdAt: new Date(),
+            requester: null,  // Set to null until a student reserves it
+            reservationType: "individual",  // Default to individual
+            status: "available",  // Available slot
+            createdAt: new Date(), // Current timestamp for creation
           };
 
-          // Add the slot to Firestore under the appointments collection
-          await setDoc(doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`), newSlot);
+          console.log("Saving new availability slot:", newSlot); // Log data for debugging
+
+          // Save the availability slot in Firestore
+          const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
+          await setDoc(docRef, newSlot);  // Save the document to appointments collection
         }
       }
 
-      alert("Availability saved!");
+      alert("Availability saved successfully!");
     } catch (e) {
-      console.error(e);
+      console.error("Error saving availability:", e); // Log the error for debugging
       setError("Failed to save availability.");
     } finally {
       setSavingAvailability(false);
@@ -159,7 +167,7 @@ export default function ProfessorDashboard({ user }) {
             </thead>
             <tbody>
               {appointments.map((app) => {
-                const dt = app.date ? new Date(app.date.seconds * 1000) : null;
+                const dt = app.date ? new Date(app.date) : null;
                 const studentName = app.requester?.name || app.requester?.email || "—";
                 const topicMain = app.reason?.topic || app.topic || "—";
                 const thesisNote =
@@ -246,8 +254,8 @@ export default function ProfessorDashboard({ user }) {
                   onChange={(e) => handleTimeChange(day, index, "consultationType", e.target.value)}
                   className="border p-2 rounded"
                 >
-                  <option value="Face-to-Face">Face-to-Face</option>
-                  <option value="Online">Online</option>
+                  <option value="in-person">In-person</option>
+                  <option value="online">Online</option>
                 </select>
               </div>
             ))}
