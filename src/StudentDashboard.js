@@ -24,7 +24,6 @@ export default function StudentDashboard({ user }) {
     try {
       console.log("Fetching schedules...");
   
-      // Fetch all schedules from the 'schedules' collection for all professors
       const schedulesRef = collection(db, "schedules");
       const schedulesSnap = await getDocs(schedulesRef);
   
@@ -39,17 +38,24 @@ export default function StudentDashboard({ user }) {
       const allSlots = [];
       const professorDetailsPromises = [];
   
-      // Loop over each schedule document
-      schedulesSnap.forEach((doc) => {
+      
+      schedulesSnap.forEach(async (doc) => {
         const scheduleData = doc.data();
-        const professorId = doc.id;  // Document ID is the professor's ID
+        const professorId = doc.id;  
         console.log("Fetching details for professor:", professorId);
   
-        // Fetch professor details from 'users' collection
-        const professorDetailsPromise = getDoc(doc(db, "users", professorId));
-        professorDetailsPromises.push(professorDetailsPromise);
+        const profdataRef = collection(db, "users");
+        const profSnap = await getDocs(profdataRef);
+
+        profSnap.forEach((docu) =>{
+          const profData = docu.data();
+          console.log("Show profData:", profData);
+        });
+
+        //const professorDetailsPromise = getDoc(doc(db, "users", professorId));
+        //professorDetailsPromises.push(professorDetailsPromise);
   
-        // Format the schedule data for easy display (e.g., "Monday: AM, PM")
+       
         Object.entries(scheduleData).forEach(([day, times]) => {
           allSlots.push({
             professorId,
