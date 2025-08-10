@@ -26,7 +26,7 @@ export default function StudentDashboard({ user }) {
   
       // Fetch all schedules from the 'schedules' collection for all professors
       const schedulesRef = collection(db, "schedules");
-      const schedulesSnap = await getDocs(schedulesRef);  // Get all documents in the collection
+      const schedulesSnap = await getDocs(schedulesRef);
   
       if (schedulesSnap.empty) {
         console.log("No schedules found.");
@@ -45,7 +45,7 @@ export default function StudentDashboard({ user }) {
         const professorId = doc.id;  // Document ID is the professor's ID
         console.log("Fetching details for professor:", professorId);
   
-        // Fetch professor details from 'users' collection using professorId
+        // Fetch professor details from 'users' collection
         const professorDetailsPromise = getDoc(doc(db, "users", professorId));
         professorDetailsPromises.push(professorDetailsPromise);
   
@@ -69,11 +69,15 @@ export default function StudentDashboard({ user }) {
         const professorInfo = professorDetailsSnapshots[index];
         if (professorInfo.exists()) {
           const professorData = professorInfo.data();
+          console.log(`Professor Data for ${slot.professorId}:`, professorData);
           slot.professorName = professorData.name;
           slot.professorEmail = professorData.email;
           slot.professorDepartment = professorData.department;
         } else {
           console.log(`No professor data found for ${slot.professorId}`);
+          slot.professorName = "Unknown Professor";  // Default value if data is missing
+          slot.professorEmail = "N/A";
+          slot.professorDepartment = "N/A";
         }
       });
   
