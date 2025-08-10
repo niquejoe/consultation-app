@@ -91,52 +91,27 @@ export default function ProfessorDashboard({ user }) {
     setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
   };
 
-  // Save availability to Firestore as appointments
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
-      // Iterate through each day in the professor's availability
-      for (let day in availability) {
-        const slots = availability[day];
-        for (let slot of slots) {
-          // Calculate the next available day (e.g., Monday at 10:00 AM)
-          const nextDay = getNextDayOfWeek(day, slot.startTime);
-
-          const newSlot = {
-            professorId: user.uid,
-            professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
-            day: day,  // Store just the day (e.g., "Monday")
-            time: slot.startTime,  // Store the start time (e.g., "13:00")
-            durationMins: 30,           // Default to 30 minutes
-            mode: slot.consultationType, // in-person or online
-            reason: {
-              topic: "General Consultation", // Default topic
-              thesisTitle: "",                // Leave empty for now
-            },
-            requester: null,  // Set to null until a student reserves it
-            reservationType: "individual",  // Default to individual
-            status: "available",  // Slot is available for students to book
-            createdAt: new Date(), // Current timestamp for creation
-            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date (as a timestamp)
-            date: nextDay,  // Store as Firestore Timestamp object
-          };
-
-          console.log("Saving new availability slot:", newSlot); // Log data for debugging
-
-          // Save the availability slot in Firestore
-          const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
-          await setDoc(docRef, newSlot);  // Save the document to appointments collection
-        }
-      }
-
+      const professorRef = doc(db, "schedules", user.uid);  // Use schedules collection for availability
+  
+      // Create the data to save the professor's availability
+      const availabilityData = { ...availability };
+  
+      // Save or update availability data for the professor
+      await setDoc(professorRef, availabilityData, { merge: true });
+  
       alert("Availability saved successfully!");
     } catch (e) {
-      console.error("Error saving availability:", e); // Log the error for debugging
+      console.error("Error saving availability:", e);  // Log the error for debugging
       setError("Failed to save availability.");
     } finally {
       setSavingAvailability(false);
     }
   };
+  
+ 
 
   // Function to calculate the next available date based on the day and time
   const getNextDayOfWeek = (day, time) => {
