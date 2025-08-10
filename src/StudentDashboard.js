@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
   const [slots, setSlots] = useState([]);  // All available slots from all professors
@@ -32,22 +32,46 @@ export default function StudentDashboard({ user }) {
       }
 
       const allSlots = [];
+      const professorDetailsPromises = [];
+
       schedulesSnap.forEach((doc) => {
         const scheduleData = doc.data();
         const professorId = doc.id;  // Use the document ID as the professor's ID
+
+        // Fetch the professor's details from the 'users' collection using professorId
+        const professorDetailsPromise = getDoc(doc(db, "users", professorId)).then((userSnap) => {
+          if (userSnap.exists()) {
+            return userSnap.data();
+          }
+          return null;
+        });
+
+        professorDetailsPromises.push(professorDetailsPromise);
 
         // Format the schedule data for easy display (e.g., "Monday: AM, PM")
         Object.entries(scheduleData).forEach(([day, times]) => {
           allSlots.push({
             professorId,
-            professorName: professorId,  // Placeholder for professor's name, update with real name later
             day,
             times,
           });
         });
       });
 
-      setSlots(allSlots);  // Store all the available slots
+      // Wait for all professor details to be fetched
+      const professorDetails = await Promise.all(professorDetailsPromises);
+
+      // Add professor name and other details to each slot
+      allSlots.forEach((slot, index) => {
+        const professorInfo = professorDetails[index];
+        if (professorInfo) {
+          slot.professorName = professorInfo.name;
+          slot.professorEmail = professorInfo.email;
+          slot.professorDepartment = professorInfo.department;
+        }
+      });
+
+      setSlots(allSlots);  // Store all the available slots with professor details
     } catch (e) {
       console.error(e);
       setError("Failed to load schedules.");
@@ -149,6 +173,7 @@ export default function StudentDashboard({ user }) {
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left">Professor Name</th>
+                  <th className="px-4 py-3 text-left">Department</th>
                   <th className="px-4 py-3 text-left">Day</th>
                   <th className="px-4 py-3 text-left">Time Slots</th>
                   <th className="px-4 py-3 text-left">Action</th>
@@ -159,6 +184,7 @@ export default function StudentDashboard({ user }) {
                   return (
                     <tr key={`${slot.professorId}-${slot.day}`} className="border-t">
                       <td className="px-4 py-3">{slot.professorName || "—"}</td>
+                      <td className="px-4 py-3">{slot.professorDepartment || "—"}</td>
                       <td className="px-4 py-3">{slot.day}</td>
                       <td className="px-4 py-3">{slot.times.join(", ")}</td>
                       <td className="px-4 py-3">
