@@ -41,10 +41,88 @@ export default function ProfessorDashboard({ user }) {
 
   useEffect(() => {
     load();
+    loadAvailability();  // Load availability data when the component is mounted
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Set the status of appointments
+  // Load professor's availability from Firestore
+  const loadAvailability = async () => {
+    if (!user) return;
+    try {
+      const docRef = doc(db, "schedules", user.uid); // Use professor's uid as the document ID
+      const docSnap = await getDoc(docRef); // Corrected: use getDoc to load the document
+      if (docSnap.exists()) {
+        setAvailability(docSnap.data()); // Update availability with data from Firestore
+      }
+    } catch (e) {
+      console.error("Error loading availability: ", e);
+      setError("Failed to load availability.");
+    }
+  };
+
+  // Handle time slot changes for each day (AM/PM checkboxes)
+  const handleAvailabilityChange = (day, time, isChecked) => {
+    setAvailability((prev) => {
+      const updatedDay = isChecked
+        ? [...prev[day], time]  // Add AM/PM if checked
+        : prev[day].filter((slot) => slot !== time); // Remove AM/PM if unchecked
+
+      return { ...prev, [day]: updatedDay };  // Update availability for that day
+    });
+  };
+
+  // Add a time slot for availability (this is not used now since we're working with AM/PM checkboxes)
+  const addTimeSlot = (day) => {
+    setAvailability((prev) => ({
+      ...prev,
+      [day]: [
+        ...prev[day],
+        { startTime: "", endTime: "", consultationType: "in-person" },
+      ],
+    }));
+  };
+
+  // Save availability to Firestore
+  const handleSubmitAvailability = async () => {
+    setSavingAvailability(true);
+    try {
+      // Iterate through each day in the professor's availability
+      for (let day in availability) {
+        const slots = availability[day];
+        for (let slot of slots) {
+          const newSlot = {
+            professorId: user.uid,
+            professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
+            day: day,  // Store just the day (e.g., "Monday")
+            time: slot,  // Store the time (AM/PM)
+            durationMins: 30,  // Default to 30 minutes
+            mode: "in-person", // Default mode
+            reason: { topic: "General Consultation", thesisTitle: "" },
+            requester: null, // Set to null until a student reserves it
+            reservationType: "individual", // Default to individual
+            status: "available", // Slot is available for students to book
+            createdAt: new Date(), // Current timestamp for creation
+            date: new Date(), // Store the date for availability
+          };
+
+          console.log("Saving new availability slot:", newSlot); // Log data for debugging
+
+          // Save the availability slot in Firestore
+          const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot}`);
+          await setDoc(docRef, newSlot);  // Save the document to appointments collection
+        }
+      }
+
+      alert("Availability saved successfully!");
+    } catch (e) {
+      console.error("Error saving availability:", e);
+      setError("Failed to save availability.");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  // Set the status of appointments (approve or reject)
   const setStatus = async (id, next) => {
     setError(null);
     setActingId(id);
@@ -60,105 +138,6 @@ export default function ProfessorDashboard({ user }) {
     } finally {
       setActingId(null);
     }
-  };
-
-  // Add a time slot for availability
-  const addTimeSlot = (day) => {
-    setAvailability((prev) => ({
-      ...prev,
-      [day]: [
-        ...prev[day],
-        { startTime: "", endTime: "", consultationType: "in-person" },
-      ],
-    }));
-  };
-
-  // Handle time slot changes
-  const handleTimeChange = (day, index, field, value) => {
-    const updatedDay = [...availability[day]];
-    updatedDay[index] = { ...updatedDay[index], [field]: value };
-    setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
-  };
-
-  // Save availability to Firestore as appointments
-  const handleSubmitAvailability = async () => {
-    setSavingAvailability(true);
-    try {
-      // Iterate through each day in the professor's availability
-      for (let day in availability) {
-        const slots = availability[day];
-        for (let slot of slots) {
-          // Calculate the next available day (e.g., Monday at 10:00 AM)
-          const nextDay = getNextDayOfWeek(day, slot.startTime);
-
-          const newSlot = {
-            professorId: user.uid,
-            professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
-            day: day,  // Store just the day (e.g., "Monday")
-            time: slot.startTime,  // Store the start time (e.g., "13:00")
-            durationMins: 30,           // Default to 30 minutes
-            mode: slot.consultationType, // in-person or online
-            reason: {
-              topic: "General Consultation", // Default topic
-              thesisTitle: "",                // Leave empty for now
-            },
-            requester: null,  // Set to null until a student reserves it
-            reservationType: "individual",  // Default to individual
-            status: "available",  // Slot is available for students to book
-            createdAt: new Date(), // Current timestamp for creation
-            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date (as a timestamp)
-            date: nextDay,  // Store as Firestore Timestamp object
-          };
-
-          console.log("Saving new availability slot:", newSlot); // Log data for debugging
-
-          // Save the availability slot in Firestore
-          const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
-          await setDoc(docRef, newSlot);  // Save the document to appointments collection
-        }
-      }
-
-      alert("Availability saved successfully!");
-    } catch (e) {
-      console.error("Error saving availability:", e); // Log the error for debugging
-      setError("Failed to save availability.");
-    } finally {
-      setSavingAvailability(false);
-    }
-  };
-
-  // Function to calculate the next available date based on the day and time
-  const getNextDayOfWeek = (day, time) => {
-    const today = new Date();
-    const targetDate = new Date(today);
-
-    // Mapping days to numbers
-    const daysOfWeek = {
-      Sunday: 0,
-      Monday: 1,
-      Tuesday: 2,
-      Wednesday: 3,
-      Thursday: 4,
-      Friday: 5,
-      Saturday: 6,
-    };
-
-    // Calculate the difference in days between today and the next selected day
-    const targetDayNumber = daysOfWeek[day];
-    const currentDayNumber = today.getDay();
-
-    // Calculate the number of days until the next target day (next Monday, etc.)
-    const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
-    targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
-
-    // Set the correct time (e.g., 13:00)
-    const [hours, minutes] = time.split(":");
-    targetDate.setHours(hours);
-    targetDate.setMinutes(minutes);
-    targetDate.setSeconds(0);
-    targetDate.setMilliseconds(0);
-
-    return targetDate;
   };
 
   return (
@@ -230,26 +209,26 @@ export default function ProfessorDashboard({ user }) {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {isPending ? (
-                        <div className="flex gap-2">
-                          <button
-                            disabled={disabled}
-                            onClick={() => setStatus(app.id, "confirmed")}
-                            className={`rounded-md px-3 py-1.5 text-sm transition ${disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#2e7d32] hover:bg-[#1b5e20] text-white"}`}
-                          >
-                            {disabled ? "Saving…" : "Approve"}
-                          </button>
-                          <button
-                            disabled={disabled}
-                            onClick={() => setStatus(app.id, "rejected")}
-                            className={`rounded-md px-3 py-1.5 text-sm border transition ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+                      <div className="flex gap-2">
+                        {app.status === "pending" && (
+                          <>
+                            <button
+                              disabled={disabled}
+                              onClick={() => setStatus(app.id, "confirmed")}
+                              className={`rounded-md px-3 py-1.5 text-sm transition ${disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#2e7d32] hover:bg-[#1b5e20] text-white"}`}
+                            >
+                              {disabled ? "Saving…" : "Approve"}
+                            </button>
+                            <button
+                              disabled={disabled}
+                              onClick={() => setStatus(app.id, "rejected")}
+                              className={`rounded-md px-3 py-1.5 text-sm border transition ${disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -259,47 +238,46 @@ export default function ProfessorDashboard({ user }) {
         </div>
       )}
 
-    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Set Your Availability</h2>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Set Your Availability</h2>
 
-    <div className="grid grid-cols-5 gap-4 mb-6">
-    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-        <div key={day} className="p-4 border rounded">
-        <h3 className="text-lg font-semibold mb-4">{day}</h3>
-        <div className="flex flex-col gap-2 mb-4">
-            {/* AM Checkbox */}
-            <label className="inline-flex items-center gap-2">
-            <input
-                type="checkbox"
-                checked={availability[day].includes("AM")}
-                onChange={(e) => handleAvailabilityChange(day, "AM", e.target.checked)}
-                className="form-checkbox"
-            />
-            <span>AM</span>
-            </label>
-            
-            {/* PM Checkbox */}
-            <label className="inline-flex items-center gap-2">
-            <input
-                type="checkbox"
-                checked={availability[day].includes("PM")}
-                onChange={(e) => handleAvailabilityChange(day, "PM", e.target.checked)}
-                className="form-checkbox"
-            />
-            <span>PM</span>
-            </label>
-        </div>
-        </div>
-    ))}
-    </div>
+      <div className="grid grid-cols-5 gap-4 mb-6">
+        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+          <div key={day} className="p-4 border rounded">
+            <h3 className="text-lg font-semibold mb-4">{day}</h3>
+            <div className="flex flex-col gap-2 mb-4">
+              {/* AM Checkbox */}
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={availability[day].includes("AM")}
+                  onChange={(e) => handleAvailabilityChange(day, "AM", e.target.checked)}
+                  className="form-checkbox"
+                />
+                <span>AM</span>
+              </label>
+              
+              {/* PM Checkbox */}
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={availability[day].includes("PM")}
+                  onChange={(e) => handleAvailabilityChange(day, "PM", e.target.checked)}
+                  className="form-checkbox"
+                />
+                <span>PM</span>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
 
-    <button
-    onClick={handleSubmitAvailability}
-    className="bg-green-500 text-white p-3 rounded mt-4"
-    disabled={savingAvailability}
-    >
-    {savingAvailability ? "Saving..." : "Save Availability"}
-    </button>
-
+      <button
+        onClick={handleSubmitAvailability}
+        className="bg-green-500 text-white p-3 rounded mt-4"
+        disabled={savingAvailability}
+      >
+        {savingAvailability ? "Saving..." : "Save Availability"}
+      </button>
     </main>
   );
 }
