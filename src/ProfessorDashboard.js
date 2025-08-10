@@ -1,3 +1,4 @@
+// src/ProfessorDashboard.js
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
 import {
@@ -111,6 +112,14 @@ export default function ProfessorDashboard({ user }) {
                 const studentName =
                   app.requester?.name || app.requester?.email || "—";
 
+                // Pull topic from reason.topic, fallback to legacy app.topic
+                const topicMain = app.reason?.topic || app.topic || "—";
+                const thesisNote =
+                  app.reason?.thesisTitle &&
+                  topicMain === "Thesis Consultation"
+                    ? ` — ${app.reason.thesisTitle}`
+                    : "";
+
                 const typeLabel =
                   app.reservationType === "group"
                     ? `Group${app.group?.size ? ` (${app.group.size})` : ""}${
@@ -127,7 +136,12 @@ export default function ProfessorDashboard({ user }) {
                       {dt ? dt.toLocaleString() : "—"}
                     </td>
                     <td className="px-4 py-3">{studentName}</td>
-                    <td className="px-4 py-3">{app.topic || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-gray-800">{topicMain}</span>
+                      {thesisNote && (
+                        <span className="text-gray-500"> {thesisNote}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{typeLabel}</td>
                     <td className="px-4 py-3">
                       <span
