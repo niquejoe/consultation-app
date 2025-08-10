@@ -24,7 +24,6 @@ export default function StudentDashboard({ user }) {
     try {
       console.log("Fetching schedules...");
   
-      const profdataRef = collection(db, "users");
       const schedulesRef = collection(db, "schedules");
       const schedulesSnap = await getDocs(schedulesRef);
   
@@ -45,6 +44,7 @@ export default function StudentDashboard({ user }) {
         const professorId = doc.id;  
         console.log("Fetching details for professor:", professorId);
 
+        const profdataRef = collection(db, "users");
         const professorDetails = await getDoc(profdataRef);
 
         professorDetails.forEach((docu) =>{
