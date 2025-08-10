@@ -22,36 +22,36 @@ export default function StudentDashboard({ user }) {
     setError(null);
     setOk(null);
     try {
-      // Fetch the user's data to get their user ID
+      // Fetch the user's data using user.uid as the document ID in the users collection
       const userSnap = await getDoc(doc(db, "users", user.uid));
+  
       if (!userSnap.exists()) {
         throw new Error("User not found");
       }
-      const userData = userSnap.data();
-      const userId = userData.userid; // Assuming the user document has a 'userid' field
-
-      // Now fetch the schedule for this user from the 'schedules' collection
-      const scheduleRef = doc(db, "schedules", userId); // Query schedules based on user ID
+  
+      // The `user.uid` is now used directly to access the `schedules` collection
+      const scheduleRef = doc(db, "schedules", user.uid); // Use user.uid as the document ID in schedules
       const scheduleSnap = await getDoc(scheduleRef);
-
+  
       if (!scheduleSnap.exists()) {
         throw new Error("Schedule not found");
       }
-
+  
       const scheduleData = scheduleSnap.data(); // This contains the schedule for the user
       const formattedSlots = Object.entries(scheduleData).map(([day, times]) => ({
         day,
         times, // Array of time slots for that day
       }));
-
-      setSlots(formattedSlots);
+  
+      setSlots(formattedSlots); // Format and set the slots
     } catch (e) {
       console.error(e);
-      setError("Failed to load slots.");
+      setError(e.message || "Failed to load slots.");
     } finally {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     load();
