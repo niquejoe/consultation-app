@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, setDoc } from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore";  // <-- added updateDoc here
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
