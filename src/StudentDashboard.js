@@ -26,7 +26,7 @@ export default function StudentDashboard({ user }) {
   
       // Fetch all schedules from the 'schedules' collection for all professors
       const schedulesRef = collection(db, "schedules");
-      const schedulesSnap = await getDocs(schedulesRef); // Fetch all documents
+      const schedulesSnap = await getDocs(schedulesRef);
   
       if (schedulesSnap.empty) {
         console.log("No schedules found.");
@@ -83,8 +83,6 @@ export default function StudentDashboard({ user }) {
       setLoading(false);
     }
   };
-  
-  
   
 
   useEffect(() => {
