@@ -1,15 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  doc,
-  updateDoc,
-  setDoc,
-} from "firebase/firestore";
+import { collection, getDocs, query, where, orderBy, doc, setDoc } from "firebase/firestore";
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -82,6 +73,14 @@ export default function ProfessorDashboard({ user }) {
     }));
   };
 
+  // Handle time slot changes
+  const handleTimeChange = (day, index, field, value) => {
+    const updatedDay = [...availability[day]];
+    updatedDay[index] = { ...updatedDay[index], [field]: value };
+    setAvailability((prev) => ({ ...prev, [day]: updatedDay }));
+  };
+
+  // Save availability to Firestore as appointments
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
@@ -91,7 +90,7 @@ export default function ProfessorDashboard({ user }) {
         for (let slot of slots) {
           // Calculate the next available day (e.g., Monday at 10:00 AM)
           const nextDay = getNextDayOfWeek(day, slot.startTime);
-          
+
           const newSlot = {
             professorId: user.uid,
             professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
@@ -109,15 +108,15 @@ export default function ProfessorDashboard({ user }) {
             createdAt: new Date(), // Current timestamp for creation
             nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date
           };
-  
+
           console.log("Saving new availability slot:", newSlot); // Log data for debugging
-  
+
           // Save the availability slot in Firestore
           const docRef = doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`);
           await setDoc(docRef, newSlot);  // Save the document to appointments collection
         }
       }
-  
+
       alert("Availability saved successfully!");
     } catch (e) {
       console.error("Error saving availability:", e); // Log the error for debugging
@@ -126,12 +125,12 @@ export default function ProfessorDashboard({ user }) {
       setSavingAvailability(false);
     }
   };
-  
+
   // Function to calculate the next available date based on the day and time
   const getNextDayOfWeek = (day, time) => {
     const today = new Date();
     const targetDate = new Date(today);
-  
+
     // Mapping days to numbers
     const daysOfWeek = {
       Sunday: 0,
@@ -142,26 +141,24 @@ export default function ProfessorDashboard({ user }) {
       Friday: 5,
       Saturday: 6,
     };
-  
+
     // Calculate the difference in days between today and the next selected day
     const targetDayNumber = daysOfWeek[day];
     const currentDayNumber = today.getDay();
-  
+
     // Calculate the number of days until the next target day (next Monday, etc.)
     const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
     targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
-  
+
     // Set the correct time (e.g., 10:00 AM)
     const [hours, minutes] = time.split(":");
     targetDate.setHours(hours);
     targetDate.setMinutes(minutes);
     targetDate.setSeconds(0);
     targetDate.setMilliseconds(0);
-  
+
     return targetDate;
   };
-  
-  
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
