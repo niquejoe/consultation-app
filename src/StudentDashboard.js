@@ -25,29 +25,23 @@ export default function StudentDashboard({ user }) {
       // Fetch all schedules from the 'schedules' collection for all professors
       const schedulesRef = collection(db, "schedules");  // Reference to the schedules collection
       const schedulesSnap = await getDocs(schedulesRef);  // Get all documents in the collection
-
+  
       if (schedulesSnap.empty) {
         setError("No schedules found for professors.");
         return;
       }
-
+  
       const allSlots = [];
       const professorDetailsPromises = [];
-
+  
       schedulesSnap.forEach((doc) => {
         const scheduleData = doc.data();
         const professorId = doc.id;  // Use the document ID as the professor's ID
-
+  
         // Fetch the professor's details from the 'users' collection using professorId
-        const professorDetailsPromise = getDoc(doc(db, "users", professorId)).then((userSnap) => {
-          if (userSnap.exists()) {
-            return userSnap.data();
-          }
-          return null;
-        });
-
+        const professorDetailsPromise = getDoc(doc(db, "users", professorId));
         professorDetailsPromises.push(professorDetailsPromise);
-
+  
         // Format the schedule data for easy display (e.g., "Monday: AM, PM")
         Object.entries(scheduleData).forEach(([day, times]) => {
           allSlots.push({
@@ -57,20 +51,21 @@ export default function StudentDashboard({ user }) {
           });
         });
       });
-
+  
       // Wait for all professor details to be fetched
-      const professorDetails = await Promise.all(professorDetailsPromises);
-
+      const professorDetailsSnapshots = await Promise.all(professorDetailsPromises);
+  
       // Add professor name and other details to each slot
       allSlots.forEach((slot, index) => {
-        const professorInfo = professorDetails[index];
-        if (professorInfo) {
-          slot.professorName = professorInfo.name;
-          slot.professorEmail = professorInfo.email;
-          slot.professorDepartment = professorInfo.department;
+        const professorInfo = professorDetailsSnapshots[index];
+        if (professorInfo.exists()) {
+          const professorData = professorInfo.data();
+          slot.professorName = professorData.name;
+          slot.professorEmail = professorData.email;
+          slot.professorDepartment = professorData.department;
         }
       });
-
+  
       setSlots(allSlots);  // Store all the available slots with professor details
     } catch (e) {
       console.error(e);
@@ -79,6 +74,7 @@ export default function StudentDashboard({ user }) {
       setLoading(false);
     }
   };
+  
 
   useEffect(() => {
     load();  // Load the schedules when the component mounts
