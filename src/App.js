@@ -1,39 +1,38 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "./firebaseConfig";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import Login from "./Login";
 import logo from "./assets/img/logo.png";
+import StudentDashboard from "./StudentDashboard";
+import ProfessorDashboard from "./ProfessorDashboard";
 
 function App() {
   const [user, setUser] = useState(null);
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState(null);          // "student" | "professor"
+  const [loadingRole, setLoadingRole] = useState(true);
 
-  // Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (!u) {
+        setRole(null);
+        setLoadingRole(false);
+        return;
+      }
+      setLoadingRole(true);
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        setRole(snap.exists() ? snap.data().role : null);
+      } catch (e) {
+        console.error("Failed to load role:", e);
+        setRole(null);
+      } finally {
+        setLoadingRole(false);
+      }
+    });
     return () => unsubscribe();
   }, []);
-
-  // Fetch data when logged in
-  useEffect(() => {
-    if (!user) return;
-    const fetchAppointments = async () => {
-      setLoading(true);
-      try {
-        const q = query(collection(db, "appointments"), orderBy("date", "desc"));
-        const snapshot = await getDocs(q);
-        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setAppointments(list);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAppointments();
-  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -47,7 +46,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Header (shared) */}
       <header className="bg-white border-b">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -66,58 +65,24 @@ function App() {
         </div>
       </header>
 
-      {/* Main */}
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-xl font-semibold text-gray-800 mb-4">Your Appointments</h1>
+      {/* Body */}
+      {loadingRole && (
+        <main className="mx-auto max-w-5xl px-4 py-6">
+          <div className="bg-white border rounded-lg p-6 text-gray-600">Loading your dashboard…</div>
+        </main>
+      )}
 
-        {/* Loading */}
-        {loading && (
-          <div className="bg-white border rounded-lg p-6 text-gray-600">Loading appointments…</div>
-        )}
-
-        {/* Empty state */}
-        {!loading && appointments.length === 0 && (
-          <div className="bg-white border rounded-lg p-8 text-center">
-            <p className="text-gray-700 font-medium">No appointments yet</p>
-            <p className="text-gray-500 text-sm mt-1">When consultations are created, they’ll show up here.</p>
+      {!loadingRole && !role && (
+        <main className="mx-auto max-w-5xl px-4 py-6">
+          <div className="bg-white border rounded-lg p-6">
+            <p className="text-gray-800 font-medium">No role found for your account.</p>
+            <p className="text-gray-600 text-sm mt-1">Ask the admin to set your role (student/professor).</p>
           </div>
-        )}
+        </main>
+      )}
 
-        {/* Table */}
-        {!loading && appointments.length > 0 && (
-          <div className="overflow-x-auto bg-white border rounded-lg">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="px-4 py-3 text-left">Subject</th>
-                  <th className="px-4 py-3 text-left">Student</th>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {appointments.map((app) => (
-                  <tr key={app.id} className="border-t">
-                    <td className="px-4 py-3">{app.subject || "—"}</td>
-                    <td className="px-4 py-3">{app.studentName || "—"}</td>
-                    <td className="px-4 py-3">
-                      {app.date
-                        ? new Date(app.date.seconds ? app.date.seconds * 1000 : app.date).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-                        bg-orange-100 text-[#f37021]">
-                        {app.status || "pending"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </main>
+      {!loadingRole && role === "student" && <StudentDashboard user={user} />}
+      {!loadingRole && role === "professor" && <ProfessorDashboard user={user} />}
     </div>
   );
 }
