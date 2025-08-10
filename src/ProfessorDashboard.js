@@ -1,25 +1,56 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { setDoc, doc, getDoc } from "firebase/firestore"; // For saving data to Firestore
+import { setDoc, doc, getDoc } from "firebase/firestore"; // For saving and loading data
 
 export default function ProfessorDashboard({ user }) {
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actingId, setActingId] = useState(null);
+  const [error, setError] = useState(null);
   const [availability, setAvailability] = useState({
-    Monday: { AM: false, PM: false },
-    Tuesday: { AM: false, PM: false },
-    Wednesday: { AM: false, PM: false },
-    Thursday: { AM: false, PM: false },
-    Friday: { AM: false, PM: false },
+    Monday: [],
+    Tuesday: [],
+    Wednesday: [],
+    Thursday: [],
+    Friday: [],
   });
   const [savingAvailability, setSavingAvailability] = useState(false);
-  const [error, setError] = useState(null);
 
-  // Load existing professor's availability
+  // Load professor's appointments
+  const loadAppointments = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const q = query(
+        collection(db, "appointments"),
+        where("professorId", "==", user.uid),
+        where("status", "in", ["pending", "confirmed", "rejected"]),
+        orderBy("date", "desc")
+      );
+      const snapshot = await getDocs(q);
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setAppointments(list);
+    } catch (e) {
+      console.error(e);
+      setError("Failed to load appointments.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAppointments();
+    loadAvailability();  // Load availability data when the component is mounted
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Load professor's availability from Firestore
   const loadAvailability = async () => {
     if (!user) return;
     try {
-      const docRef = doc(db, "schedules", user.uid);  // Use professor's uid as the document ID
+      const docRef = doc(db, "schedules", user.uid); // Use professor's uid as the document ID
       const docSnap = await getDoc(docRef);
-      
       if (docSnap.exists()) {
         setAvailability(docSnap.data());
       }
@@ -29,18 +60,21 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
-  useEffect(() => {
-    loadAvailability();
-  }, [user]);
+  // Handle time slot changes for each day
+  const handleTimeChange = (day, index, field, value) => {
+    const updatedDay = [...availability[day]];
+    updatedDay[index] = { ...updatedDay[index], [field]: value };
+    setAvailability((prevState) => ({ ...prevState, [day]: updatedDay }));
+  };
 
-  // Handle availability toggle (AM/PM)
-  const handleTimeChange = (day, time) => {
-    setAvailability((prevState) => ({
-      ...prevState,
-      [day]: {
-        ...prevState[day],
-        [time]: !prevState[day][time], // Toggle availability (AM/PM)
-      },
+  // Add a time slot for availability
+  const addTimeSlot = (day) => {
+    setAvailability((prev) => ({
+      ...prev,
+      [day]: [
+        ...prev[day],
+        { startTime: "", endTime: "", consultationType: "in-person" },
+      ],
     }));
   };
 
@@ -49,7 +83,7 @@ export default function ProfessorDashboard({ user }) {
     setSavingAvailability(true);
     try {
       const professorRef = doc(db, "schedules", user.uid);
-      await setDoc(professorRef, availability, { merge: true }); // Save availability data
+      await setDoc(professorRef, availability, { merge: true }); // Save or update availability data
       alert("Availability saved successfully!");
     } catch (e) {
       console.error("Error saving availability: ", e);
@@ -61,11 +95,94 @@ export default function ProfessorDashboard({ user }) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="text-xl font-semibold text-gray-800 mb-4">Your Availability</h1>
+      <h1 className="text-xl font-semibold text-gray-800 mb-4">Your Appointments</h1>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-3">
           {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-white border rounded-lg p-6 text-gray-600">Loading appointments…</div>
+      )}
+
+      {!loading && appointments.length === 0 && (
+        <div className="bg-white border rounded-lg p-8 text-center">
+          <p className="text-gray-700 font-medium">No booked appointments yet</p>
+          <p className="text-gray-500 text-sm mt-1">Pending or confirmed bookings will appear here.</p>
+        </div>
+      )}
+
+      {!loading && appointments.length > 0 && (
+        <div className="overflow-x-auto bg-white border rounded-lg mb-6">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-100 text-gray-700">
+              <tr>
+                <th className="px-4 py-3 text-left">Date & Time</th>
+                <th className="px-4 py-3 text-left">Student</th>
+                <th className="px-4 py-3 text-left">Topic</th>
+                <th className="px-4 py-3 text-left">Type</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {appointments.map((app) => {
+                const dt = app.date ? new Date(app.date) : null;
+                const studentName = app.requester?.name || app.requester?.email || "—";
+                const topicMain = app.reason?.topic || app.topic || "—";
+                const thesisNote =
+                  app.reason?.thesisTitle && topicMain === "Thesis Consultation"
+                    ? ` — ${app.reason.thesisTitle}`
+                    : "";
+                const typeLabel =
+                  app.reservationType === "group"
+                    ? `Group${app.group?.size ? ` (${app.group.size})` : ""}${app.group?.name ? ` — ${app.group.name}` : ""}`
+                    : "Individual";
+
+                return (
+                  <tr key={app.id} className="border-t">
+                    <td className="px-4 py-3">{dt ? dt.toLocaleString() : "—"}</td>
+                    <td className="px-4 py-3">{studentName}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-gray-800">{topicMain}</span>
+                      {thesisNote && <span className="text-gray-500"> {thesisNote}</span>}
+                    </td>
+                    <td className="px-4 py-3">{typeLabel}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                          ${app.status === "confirmed" ? "bg-green-100 text-green-700" : app.status === "pending" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-700"}`}
+                      >
+                        {app.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        {app.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => setStatus(app.id, "confirmed")}
+                              className="rounded-md px-3 py-1.5 text-sm bg-green-500 text-white"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => setStatus(app.id, "rejected")}
+                              className="rounded-md px-3 py-1.5 text-sm border border-gray-300"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -75,17 +192,36 @@ export default function ProfessorDashboard({ user }) {
         {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
           <div key={day} className="p-4 border rounded">
             <h3 className="text-lg font-semibold mb-4">{day}</h3>
-            {["AM", "PM"].map((time) => (
-              <label key={time} className="flex items-center gap-2 mb-2">
+            {availability[day].map((slot, index) => (
+              <div key={index} className="flex flex-col gap-2 mb-4">
                 <input
-                  type="checkbox"
-                  checked={availability[day][time]}
-                  onChange={() => handleTimeChange(day, time)}
-                  className="rounded"
+                  type="time"
+                  value={slot.startTime}
+                  onChange={(e) => handleTimeChange(day, index, "startTime", e.target.value)}
+                  className="border p-2 rounded"
                 />
-                {time}
-              </label>
+                <input
+                  type="time"
+                  value={slot.endTime}
+                  onChange={(e) => handleTimeChange(day, index, "endTime", e.target.value)}
+                  className="border p-2 rounded"
+                />
+                <select
+                  value={slot.consultationType}
+                  onChange={(e) => handleTimeChange(day, index, "consultationType", e.target.value)}
+                  className="border p-2 rounded"
+                >
+                  <option value="in-person">In-person</option>
+                  <option value="online">Online</option>
+                </select>
+              </div>
             ))}
+            <button
+              onClick={() => addTimeSlot(day)}
+              className="bg-blue-500 text-white p-2 rounded"
+            >
+              + Add Time Slot
+            </button>
           </div>
         ))}
       </div>
