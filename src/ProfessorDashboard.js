@@ -88,7 +88,32 @@ export default function ProfessorDashboard({ user }) {
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
-      await setDoc(doc(db, "professors", user.uid), { availability });
+      // Iterate through each day in the professor's availability
+      for (let day in availability) {
+        const slots = availability[day];
+        for (let slot of slots) {
+          // Create an availability appointment for each slot
+          const newSlot = {
+            professorId: user.uid,
+            professorName: "Dr. Nikie Jo E. Deocampo",  // Or get dynamically if needed
+            date: new Date(`${day}, ${slot.startTime}`).toISOString(), // Combine the day with startTime for full date
+            durationMins: 30, // Example: You can customize this
+            mode: slot.consultationType, // Face-to-Face or Online
+            reason: {
+              topic: "General Consultation", // You can modify based on specific professor preferences
+              thesisTitle: "",  // Leave empty or use relevant data if needed
+            },
+            requester: null, // This will be null for available slots until a student reserves it
+            reservationType: "individual", // Default to individual, modify if needed
+            status: "available", // Availability status
+            createdAt: new Date(),
+          };
+
+          // Add the slot to Firestore under the appointments collection
+          await setDoc(doc(db, "appointments", `${user.uid}-${day}-${slot.startTime}`), newSlot);
+        }
+      }
+
       alert("Availability saved!");
     } catch (e) {
       console.error(e);
@@ -115,9 +140,7 @@ export default function ProfessorDashboard({ user }) {
       {!loading && appointments.length === 0 && (
         <div className="bg-white border rounded-lg p-8 text-center">
           <p className="text-gray-700 font-medium">No booked appointments yet</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Pending or confirmed bookings will appear here.
-          </p>
+          <p className="text-gray-500 text-sm mt-1">Pending or confirmed bookings will appear here.</p>
         </div>
       )}
 
