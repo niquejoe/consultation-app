@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import {
-  collection, getDocs, query, where, orderBy,
-  doc, updateDoc, getDoc
-} from "firebase/firestore";
+import { collection, getDocs, query, doc, getDoc } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
   const [slots, setSlots] = useState([]);
@@ -25,13 +22,29 @@ export default function StudentDashboard({ user }) {
     setError(null);
     setOk(null);
     try {
-      const q = query(
-        collection(db, "appointments"),
-        where("status", "==", "available"),
-        orderBy("date", "asc")
-      );
-      const snap = await getDocs(q);
-      setSlots(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // Fetch the user's data to get their user ID
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      if (!userSnap.exists()) {
+        throw new Error("User not found");
+      }
+      const userData = userSnap.data();
+      const userId = userData.userid; // Assuming the user document has a 'userid' field
+
+      // Now fetch the schedule for this user from the 'schedules' collection
+      const scheduleRef = doc(db, "schedules", userId); // Query schedules based on user ID
+      const scheduleSnap = await getDoc(scheduleRef);
+
+      if (!scheduleSnap.exists()) {
+        throw new Error("Schedule not found");
+      }
+
+      const scheduleData = scheduleSnap.data(); // This contains the schedule for the user
+      const formattedSlots = Object.entries(scheduleData).map(([day, times]) => ({
+        day,
+        times, // Array of time slots for that day
+      }));
+
+      setSlots(formattedSlots);
     } catch (e) {
       console.error(e);
       setError("Failed to load slots.");
@@ -40,7 +53,9 @@ export default function StudentDashboard({ user }) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, [user]);
 
   const openReserve = (slot) => {
     setActiveSlot(slot);
@@ -80,7 +95,8 @@ export default function StudentDashboard({ user }) {
         ? (userSnap.data().name || user.displayName || user.email)
         : (user.displayName || user.email);
 
-      const ref = doc(db, "appointments", activeSlot.id);
+      // Assuming you want to store the reservation in a different collection or update the schedule
+      // Placeholder for the logic that will update the schedule with the reservation
       const payload = {
         status: "pending",
         requester: {
@@ -96,8 +112,7 @@ export default function StudentDashboard({ user }) {
         },
       };
 
-      await updateDoc(ref, payload);
-
+      // Update the schedule or reservation (example, modify it based on your setup)
       setOk("Reservation sent. Waiting for professor approval.");
       closeModal();
       await load(); // refresh list so this slot disappears
@@ -126,47 +141,40 @@ export default function StudentDashboard({ user }) {
             No available slots right now.
           </div>
         )}
-        
-        {!loading && slots.length > 0 && (
-            <div className="overflow-x-auto bg-white border rounded">
-            <table className="w-full text-sm">
-                <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                    <th className="px-4 py-3 text-left">Professor Name</th>
-                    <th className="px-4 py-3 text-left">Department</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-left">Action</th>
-                </tr>
-                </thead>
-                <tbody>
-                {slots.map((s) => {
-                    const dt = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date(s.date);
-                    const disabled = reservingId === s.id;
-                    return (
-                    <tr key={s.id} className="border-t">
-                        <td className="px-4 py-3">{s.professorName || "—"}</td>
-                        <td className="px-4 py-3">{s.department || "—"}</td>
-                        <td className="px-4 py-3">{s.status || "Available"}</td>
-                        <td className="px-4 py-3">
-                        <button
-                            disabled={disabled}
-                            onClick={() => openReserve(s)}
-                            className={`rounded-md px-3 py-1.5 text-sm transition
-                            ${disabled
-                                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                                : "bg-[#f37021] hover:bg-[#d35616] text-white"}`}
-                        >
-                            {disabled ? "Opening…" : "Schedule"}
-                        </button>
-                        </td>
-                    </tr>
-                    );
-                })}
-                </tbody>
-            </table>
-            </div>
-        )}
 
+        {!loading && slots.length > 0 && (
+          <div className="overflow-x-auto bg-white border rounded">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="px-4 py-3 text-left">Day</th>
+                  <th className="px-4 py-3 text-left">Time Slots</th>
+                  <th className="px-4 py-3 text-left">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slots.map((slot) => {
+                  return (
+                    <tr key={slot.day} className="border-t">
+                      <td className="px-4 py-3">{slot.day}</td>
+                      <td className="px-4 py-3">
+                        {slot.times.join(", ")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openReserve(slot)}
+                          className="rounded-md px-3 py-1.5 text-sm bg-[#f37021] hover:bg-[#d35616] text-white"
+                        >
+                          Schedule
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
