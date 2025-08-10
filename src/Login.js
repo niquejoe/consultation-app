@@ -54,56 +54,61 @@ export default function Login() {
 }
 
 const styles = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    height: "100vh",
-    background: "linear-gradient(135deg, #74ABE2, #5563DE)",
-    fontFamily: "sans-serif",
-  },
-  form: {
-    background: "#fff",
-    padding: "2rem",
-    borderRadius: "12px",
-    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-    width: "300px",
-    display: "flex",
-    flexDirection: "column",
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: "1.5rem",
-    color: "#333",
-  },
-  input: {
-    padding: "0.8rem",
-    marginBottom: "1rem",
-    border: "1px solid #ccc",
-    borderRadius: "8px",
-    outline: "none",
-    fontSize: "1rem",
-    transition: "0.2s",
-  },
-  button: {
-    padding: "0.8rem",
-    background: "#5563DE",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "1rem",
-    transition: "background 0.2s",
-  },
-  error: {
-    color: "red",
-    textAlign: "center",
-    marginTop: "0.5rem",
-  },
-  logo: {
-    display: "block",
-    margin: "0 auto 1.5rem",
-    width: "100px",
-    height: "auto",
-  }
-};
+    container: {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        // Use a warm orange gradient matching the logo's main color
+        background: "linear-gradient(135deg, #f7941e, #f37021)", 
+        fontFamily: "sans-serif",
+    },
+    form: {
+        background: "#fff",
+        padding: "2rem",
+        borderRadius: "12px",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+        width: "320px",
+        display: "flex",
+        flexDirection: "column",
+    },
+    title: {
+        textAlign: "center",
+        marginBottom: "1.5rem",
+        color: "#f37021",  // Use a strong orange from the logo for the text
+        fontWeight: "600",
+    },
+    input: {
+        padding: "0.8rem",
+        marginBottom: "1rem",
+        border: "1px solid #f37021", // orange border
+        borderRadius: "8px",
+        outline: "none",
+        fontSize: "1rem",
+        transition: "0.2s",
+    },
+    button: {
+        padding: "0.8rem",
+        background: "#f37021", // logo orange
+        color: "#fff",
+        border: "none",
+        borderRadius: "8px",
+        cursor: "pointer",
+        fontSize: "1rem",
+        transition: "background 0.2s",
+    },
+    buttonHover: {
+        background: "#d35616", // darker orange on hover
+    },
+    error: {
+        color: "red",
+        textAlign: "center",
+        marginTop: "0.5rem",
+    },
+    logo: {
+        display: "block",
+        margin: "0 auto 1.5rem",
+        width: "100px",
+        height: "auto",
+    },
+};  
