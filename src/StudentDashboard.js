@@ -1,8 +1,8 @@
-// src/StudentDashboard.js
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
 import {
-  collection, getDocs, query, where, orderBy, doc, updateDoc
+  collection, getDocs, query, where, orderBy,
+  doc, updateDoc, getDoc
 } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
@@ -11,6 +11,14 @@ export default function StudentDashboard({ user }) {
   const [reservingId, setReservingId] = useState(null);
   const [error, setError] = useState(null);
   const [ok, setOk] = useState(null);
+
+  // Modal + form state
+  const [showModal, setShowModal] = useState(false);
+  const [activeSlot, setActiveSlot] = useState(null);
+  const [reservationType, setReservationType] = useState("individual"); // "individual" | "group"
+  const [groupSize, setGroupSize] = useState(2);
+  const [topic, setTopic] = useState("General Consultation");
+  const [thesisTitle, setThesisTitle] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -34,29 +42,68 @@ export default function StudentDashboard({ user }) {
 
   useEffect(() => { load(); }, []);
 
-  const reserve = async (slot) => {
+  const openReserve = (slot) => {
+    setActiveSlot(slot);
+    setReservationType("individual");
+    setGroupSize(2);
+    setTopic("General Consultation");
+    setThesisTitle("");
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setActiveSlot(null);
+  };
+
+  const submitReservation = async (e) => {
+    e.preventDefault();
+    if (!activeSlot) return;
+
+    if (reservationType === "group" && (!groupSize || Number(groupSize) < 2)) {
+      setError("Group size must be at least 2.");
+      return;
+    }
+    if (topic === "Thesis Consultation" && thesisTitle.trim().length < 3) {
+      setError("Please enter a thesis title.");
+      return;
+    }
+
     setError(null);
     setOk(null);
-    setReservingId(slot.id);
+    setReservingId(activeSlot.id);
+
     try {
-      const ref = doc(db, "appointments", slot.id);
-        await updateDoc(ref, {
-            status: "pending",
-            requester: {
-            uid: user.uid,
-            email: user.email,
-            name: user.displayName || user.email  
-            },
-            reservationType: "individual",
-            group: null
-        });
-  
-      
+      // fetch student's full name from users/{uid} (fallback to displayName/email)
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      const studentName = userSnap.exists()
+        ? (userSnap.data().name || user.displayName || user.email)
+        : (user.displayName || user.email);
+
+      const ref = doc(db, "appointments", activeSlot.id);
+      const payload = {
+        status: "pending",
+        requester: {
+          uid: user.uid,
+          email: user.email,
+          name: studentName,
+        },
+        reservationType,
+        ...(reservationType === "group" ? { group: { size: Number(groupSize) } } : { group: null }),
+        reason: {
+          topic,
+          ...(topic === "Thesis Consultation" ? { thesisTitle: thesisTitle.trim() } : {}),
+        },
+      };
+
+      await updateDoc(ref, payload);
+
       setOk("Reservation sent. Waiting for professor approval.");
-      await load();
+      closeModal();
+      await load(); // refresh list so this slot disappears
     } catch (e) {
       console.error(e);
-      setError("Could not reserve this slot. It may have just been taken.");
+      setError(e.code + ": " + (e.message || "Could not reserve this slot."));
     } finally {
       setReservingId(null);
     }
@@ -82,24 +129,20 @@ export default function StudentDashboard({ user }) {
 
         {!loading && slots.length > 0 && (
           <div className="overflow-x-auto bg-white border rounded">
-            <table className="w-full text-sm"> {/* w-full is fine; container limits total width */}
+            <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left">Date & Time</th>
                   <th className="px-4 py-3 text-left">Professor</th>
                   <th className="px-4 py-3 text-left">Topic</th>
                   <th className="px-4 py-3 text-left">Mode</th>
-                  <th className="px-4 py-3 text-left">Capacity</th>
                   <th className="px-4 py-3 text-left">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {slots.map(s => {
+                {slots.map((s) => {
                   const dt = s.date?.seconds ? new Date(s.date.seconds * 1000) : new Date(s.date);
-                  const remaining = typeof s.capacity === "number" && Array.isArray(s.attendees)
-                    ? Math.max(0, s.capacity - s.attendees.length)
-                    : (s.capacity ?? 1);
-                  const disabled = remaining <= 0 || reservingId === s.id;
+                  const disabled = reservingId === s.id;
                   return (
                     <tr key={s.id} className="border-t">
                       <td className="px-4 py-3">{dt.toLocaleString()}</td>
@@ -107,20 +150,15 @@ export default function StudentDashboard({ user }) {
                       <td className="px-4 py-3">{s.topic || "General Consultation"}</td>
                       <td className="px-4 py-3">{s.mode || "—"}</td>
                       <td className="px-4 py-3">
-                        {typeof s.capacity === "number"
-                          ? `${remaining}/${s.capacity} left`
-                          : "—"}
-                      </td>
-                      <td className="px-4 py-3">
                         <button
                           disabled={disabled}
-                          onClick={() => reserve(s)}
+                          onClick={() => openReserve(s)}
                           className={`rounded-md px-3 py-1.5 text-sm transition
                             ${disabled
                               ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                               : "bg-[#f37021] hover:bg-[#d35616] text-white"}`}
                         >
-                          {reservingId === s.id ? "Reserving…" : "Reserve"}
+                          {disabled ? "Opening…" : "Reserve"}
                         </button>
                       </td>
                     </tr>
@@ -131,6 +169,110 @@ export default function StudentDashboard({ user }) {
           </div>
         )}
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
+          {/* Dialog */}
+          <div className="relative bg-white w-full max-w-md mx-4 rounded-lg shadow-lg border p-5 z-10">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Reserve Slot</h2>
+
+            <form onSubmit={submitReservation} className="space-y-4">
+              {/* Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <div className="flex gap-4">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="reservationType"
+                      value="individual"
+                      checked={reservationType === "individual"}
+                      onChange={(e) => setReservationType(e.target.value)}
+                    />
+                    <span>Individual</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="reservationType"
+                      value="group"
+                      checked={reservationType === "group"}
+                      onChange={(e) => setReservationType(e.target.value)}
+                    />
+                    <span>Group</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Group size */}
+              {reservationType === "group" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Number of members
+                  </label>
+                  <input
+                    type="number"
+                    min={2}
+                    value={groupSize}
+                    onChange={(e) => setGroupSize(e.target.value)}
+                    className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-orange-300"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Topic */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                <select
+                  className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-orange-300"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                >
+                  <option>General Consultation</option>
+                  <option>Thesis Consultation</option>
+                  <option>Grade Related</option>
+                  <option>Others</option>
+                </select>
+              </div>
+
+              {/* Thesis title */}
+              {topic === "Thesis Consultation" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Thesis Title</label>
+                  <input
+                    type="text"
+                    placeholder="Enter thesis title"
+                    value={thesisTitle}
+                    onChange={(e) => setThesisTitle(e.target.value)}
+                    className="w-full rounded-md border px-3 py-2 outline-none focus:ring-2 focus:ring-orange-300"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-md border px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-md bg-[#f37021] px-3 py-2 text-sm text-white hover:bg-[#d35616]"
+                >
+                  Confirm Reservation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
