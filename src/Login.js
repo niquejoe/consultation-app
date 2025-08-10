@@ -60,7 +60,7 @@ const styles = {
         alignItems: "center",
         height: "100vh",
         // Use a warm orange gradient matching the logo's main color
-        background: "linear-gradient(135deg, #f7941e, #f37021)", 
+        background: "linear-gradient(86deg, rgb(247 148 30 / 12%), rgb(243 112 33 / 54%))",
         fontFamily: "sans-serif",
     },
     form: {
