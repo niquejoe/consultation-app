@@ -26,7 +26,7 @@ export default function StudentDashboard({ user }) {
   
       // Fetch all schedules from the 'schedules' collection for all professors
       const schedulesRef = collection(db, "schedules");
-      const schedulesSnap = await getDocs(schedulesRef);
+      const schedulesSnap = await getDocs(schedulesRef);  // Get all documents in the collection
   
       if (schedulesSnap.empty) {
         console.log("No schedules found.");
@@ -45,11 +45,11 @@ export default function StudentDashboard({ user }) {
         const professorId = doc.id;  // Document ID is the professor's ID
         console.log("Fetching details for professor:", professorId);
   
-        // Fetch professor details from 'users' collection
+        // Fetch professor details from 'users' collection using professorId
         const professorDetailsPromise = getDoc(doc(db, "users", professorId));
         professorDetailsPromises.push(professorDetailsPromise);
   
-        // Format the schedule data
+        // Format the schedule data for easy display (e.g., "Monday: AM, PM")
         Object.entries(scheduleData).forEach(([day, times]) => {
           allSlots.push({
             professorId,
@@ -60,7 +60,7 @@ export default function StudentDashboard({ user }) {
       });
   
       console.log("Waiting for professor details...");
-      // Wait for all professor details
+      // Wait for all professor details using Promise.all
       const professorDetailsSnapshots = await Promise.all(professorDetailsPromises);
       console.log("Professor details fetched:", professorDetailsSnapshots.length);
   
@@ -72,6 +72,8 @@ export default function StudentDashboard({ user }) {
           slot.professorName = professorData.name;
           slot.professorEmail = professorData.email;
           slot.professorDepartment = professorData.department;
+        } else {
+          console.log(`No professor data found for ${slot.professorId}`);
         }
       });
   
@@ -83,6 +85,7 @@ export default function StudentDashboard({ user }) {
       setLoading(false);
     }
   };
+  
   
 
   useEffect(() => {
