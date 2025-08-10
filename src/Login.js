@@ -21,7 +21,8 @@ export default function Login() {
   return (
     <div style={styles.container}>
       <form onSubmit={handleLogin} style={styles.form}>
-        <h2 style={styles.title}>Login</h2>
+        <h2 style={styles.title}>Consultation WebApp</h2>
+        <h4 style={styles.title}>College of Information and Communications Technology</h4>
         <input
           type="email"
           placeholder="Email"
