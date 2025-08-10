@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore"; // <-- added updateDoc here
+import { collection, getDocs, query, where, orderBy, doc, setDoc, getDoc } from "firebase/firestore"; // <-- Import getDoc for loading availability
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -50,9 +50,9 @@ export default function ProfessorDashboard({ user }) {
     if (!user) return;
     try {
       const docRef = doc(db, "schedules", user.uid); // Use professor's uid as the document ID
-      const docSnap = await getDoc(docRef);
+      const docSnap = await getDoc(docRef); // Corrected: use getDoc to load the document
       if (docSnap.exists()) {
-        setAvailability(docSnap.data());
+        setAvailability(docSnap.data()); // Update availability with data from Firestore
       }
     } catch (e) {
       console.error("Error loading availability: ", e);
@@ -82,8 +82,8 @@ export default function ProfessorDashboard({ user }) {
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
-      const professorRef = doc(db, "schedules", user.uid);
-      await setDoc(professorRef, availability, { merge: true }); // Save or update availability data
+      const professorRef = doc(db, "schedules", user.uid); // Reference to the professor's availability document
+      await setDoc(professorRef, availability, { merge: true }); // Save or update availability data (merge to avoid overwriting)
       alert("Availability saved successfully!");
     } catch (e) {
       console.error("Error saving availability: ", e);
