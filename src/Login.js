@@ -23,7 +23,7 @@ export default function Login() {
     <div style={styles.container}>
       <form onSubmit={handleLogin} style={styles.form}>
         <img
-            src="{logo}"
+            src={logo}
             alt="CICT Logo"
             style={styles.logo}
         />
