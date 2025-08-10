@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, setDoc, updateDoc } from "firebase/firestore";  // <-- added updateDoc here
-
+import { collection, getDocs, query, where, orderBy, doc, setDoc } from "firebase/firestore";
 
 export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
@@ -96,7 +95,7 @@ export default function ProfessorDashboard({ user }) {
             professorId: user.uid,
             professorName: "Dr. Nikie Jo E. Deocampo",  // Or fetch dynamically if needed
             day: day,  // Store just the day (e.g., "Monday")
-            time: slot.startTime,  // Store the start time (e.g., "10:00 AM")
+            time: slot.startTime,  // Store the start time (e.g., "13:00")
             durationMins: 30,           // Default to 30 minutes
             mode: slot.consultationType, // in-person or online
             reason: {
@@ -107,7 +106,8 @@ export default function ProfessorDashboard({ user }) {
             reservationType: "individual",  // Default to individual
             status: "available",  // Slot is available for students to book
             createdAt: new Date(), // Current timestamp for creation
-            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date
+            nextAvailableDate: nextDay.getTime(),  // Store the calculated next Monday date (as a timestamp)
+            date: nextDay,  // Store as Firestore Timestamp object
           };
 
           console.log("Saving new availability slot:", newSlot); // Log data for debugging
@@ -151,7 +151,7 @@ export default function ProfessorDashboard({ user }) {
     const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
     targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
 
-    // Set the correct time (e.g., 10:00 AM)
+    // Set the correct time (e.g., 13:00)
     const [hours, minutes] = time.split(":");
     targetDate.setHours(hours);
     targetDate.setMinutes(minutes);
