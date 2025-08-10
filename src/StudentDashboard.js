@@ -40,12 +40,17 @@ export default function StudentDashboard({ user }) {
     setReservingId(slot.id);
     try {
       const ref = doc(db, "appointments", slot.id);
-      await updateDoc(ref, {
-        status: "pending",
-        requester: { uid: user.uid, email: user.email }, 
-        reservationType: "individual",                    
-        group: null                                       
-      });
+        await updateDoc(ref, {
+            status: "pending",
+            requester: {
+            uid: user.uid,
+            email: user.email,
+            name: user.displayName || user.email  
+            },
+            reservationType: "individual",
+            group: null
+        });
+  
       
       setOk("Reservation sent. Waiting for professor approval.");
       await load();
