@@ -1,34 +1,31 @@
-// src/ProfessorDashboard.jsx
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-//import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 
-
-export default function ProfessorDashboard() {
+export default function ProfessorDashboard({ user }) {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user) return;
     const fetchAppointments = async () => {
       setLoading(true);
       try {
-        //const q = query(collection(db, "appointments"), orderBy("date", "desc"));
         const q = query(
-            collection(db, "appointments"),
-            where("professorId", "==", user.uid),
-            where("status", "in", ["pending", "confirmed", "rejected"]),
-            orderBy("date", "desc")
-          );
+          collection(db, "appointments"),
+          where("professorId", "==", user.uid),
+          where("status", "in", ["pending", "confirmed", "rejected"]),
+          orderBy("date", "desc")
+        );
         const snapshot = await getDocs(q);
-        const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         setAppointments(list);
       } finally {
         setLoading(false);
       }
     };
     fetchAppointments();
-  }, []);
+  }, [user]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
@@ -40,10 +37,8 @@ export default function ProfessorDashboard() {
 
       {!loading && appointments.length === 0 && (
         <div className="bg-white border rounded-lg p-8 text-center">
-          <p className="text-gray-700 font-medium">No appointments yet</p>
-          <p className="text-gray-500 text-sm mt-1">
-            When consultations are created, they’ll show up here.
-          </p>
+          <p className="text-gray-700 font-medium">No booked appointments yet</p>
+          <p className="text-gray-500 text-sm mt-1">Pending or confirmed bookings will appear here.</p>
         </div>
       )}
 
@@ -52,31 +47,38 @@ export default function ProfessorDashboard() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left">Subject</th>
-                <th className="px-4 py-3 text-left">Student</th>
-                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Date & Time</th>
+                <th className="px-4 py-3 text-left">Student(s)</th>
+                <th className="px-4 py-3 text-left">Topic</th>
                 <th className="px-4 py-3 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
-              {appointments.map((app) => (
-                <tr key={app.id} className="border-t">
-                  <td className="px-4 py-3">{app.subject || "—"}</td>
-                  <td className="px-4 py-3">{app.studentName || "—"}</td>
-                  <td className="px-4 py-3">
-                    {app.date
-                      ? new Date(
-                          app.date.seconds ? app.date.seconds * 1000 : app.date
-                        ).toLocaleString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-[#f37021]">
-                      {app.status || "pending"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {appointments.map(app => {
+                const dt = app.date
+                  ? new Date(app.date.seconds ? app.date.seconds * 1000 : app.date)
+                  : null;
+                const students = Array.isArray(app.attendees)
+                  ? app.attendees.map(a => a.name || a.email).join(", ")
+                  : "—";
+                return (
+                  <tr key={app.id} className="border-t">
+                    <td className="px-4 py-3">{dt ? dt.toLocaleString() : "—"}</td>
+                    <td className="px-4 py-3">{students || "—"}</td>
+                    <td className="px-4 py-3">{app.topic || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                          ${app.status === "confirmed" ? "bg-green-100 text-green-700"
+                            : app.status === "pending" ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-700"}`}
+                      >
+                        {app.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
