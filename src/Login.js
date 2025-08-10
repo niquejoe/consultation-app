@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { auth } from "./firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import logo from "./assets/img/logo.png";
-import styles from "./assets/css/login.css";
+import "./assets/css/login.css"; // plain CSS import
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -21,35 +21,32 @@ export default function Login() {
   };
 
   return (
-    <div style={styles.container}>
-      <form onSubmit={handleLogin} style={styles.form}>
-        <img
-            src={logo}
-            alt="CICT Logo"
-            style={styles.logo}
-        />
-        <h2 style={styles.title}>CICT Consultation WebApp</h2>
+    <div className="login-container">
+      <form onSubmit={handleLogin} className="login-form">
+        <img src={logo} alt="CICT Logo" className="login-logo" />
+        <h2 className="login-title">CICT Consultation WebApp</h2>
+
         <input
           type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          style={styles.input}
+          className="login-input"
         />
+
         <input
           type="password"
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          style={styles.input}
+          className="login-input"
         />
-        <button type="submit" style={styles.button}>
-          Login
-        </button>
-        {error && <p style={styles.error}>{error}</p>}
+
+        <button type="submit" className="login-button">Login</button>
+        {error && <p className="login-error">{error}</p>}
       </form>
     </div>
   );
-} 
+}
