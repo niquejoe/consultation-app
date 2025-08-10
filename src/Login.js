@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { auth } from "./firebaseConfig";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import logo from "./assets/img/logo.png";
-import "./assets/css/login.css"; // plain CSS import
+import "./assets/css/login.css"; 
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -14,8 +14,7 @@ export default function Login() {
     setError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Redirect or show success message here
-    } catch (err) {
+    } catch {
       setError("Invalid email or password");
     }
   };
