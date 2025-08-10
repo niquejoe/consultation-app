@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
 import {
-  collection, getDocs, query, where, orderBy,
-  doc, updateDoc, getDoc
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  doc,
+  updateDoc,
+  getDoc
 } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
@@ -20,6 +26,7 @@ export default function StudentDashboard({ user }) {
   const [topic, setTopic] = useState("General Consultation");
   const [thesisTitle, setThesisTitle] = useState("");
 
+  // Load available slots
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -82,8 +89,8 @@ export default function StudentDashboard({ user }) {
 
       const ref = doc(db, "appointments", activeSlot.id);
       const payload = {
-        status: "pending",
-        requester: {
+        status: "pending", // Change status to "pending"
+        requester: {       // Populate the requester field with the student's info
           uid: user.uid,
           email: user.email,
           name: studentName,
@@ -96,11 +103,11 @@ export default function StudentDashboard({ user }) {
         },
       };
 
-      await updateDoc(ref, payload);
+      await updateDoc(ref, payload); // Update the Firestore document
 
       setOk("Reservation sent. Waiting for professor approval.");
       closeModal();
-      await load(); // refresh list so this slot disappears
+      await load(); // Refresh list so this slot disappears
     } catch (e) {
       console.error(e);
       setError(e.code + ": " + (e.message || "Could not reserve this slot."));
