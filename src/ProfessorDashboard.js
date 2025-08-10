@@ -259,53 +259,47 @@ export default function ProfessorDashboard({ user }) {
         </div>
       )}
 
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Set Your Availability</h2>
+    <h2 className="text-2xl font-semibold text-gray-800 mb-4">Set Your Availability</h2>
 
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-          <div key={day} className="p-4 border rounded">
-            <h3 className="text-lg font-semibold mb-4">{day}</h3>
-            {availability[day].map((slot, index) => (
-              <div key={index} className="flex flex-col gap-2 mb-4">
-                <input
-                  type="time"
-                  value={slot.startTime}
-                  onChange={(e) => handleTimeChange(day, index, "startTime", e.target.value)}
-                  className="border p-2 rounded"
-                />
-                <input
-                  type="time"
-                  value={slot.endTime}
-                  onChange={(e) => handleTimeChange(day, index, "endTime", e.target.value)}
-                  className="border p-2 rounded"
-                />
-                <select
-                  value={slot.consultationType}
-                  onChange={(e) => handleTimeChange(day, index, "consultationType", e.target.value)}
-                  className="border p-2 rounded"
-                >
-                  <option value="in-person">In-person</option>
-                  <option value="online">Online</option>
-                </select>
-              </div>
-            ))}
-            <button
-              onClick={() => addTimeSlot(day)}
-              className="bg-blue-500 text-white p-2 rounded"
-            >
-              + Add Time Slot
-            </button>
-          </div>
-        ))}
-      </div>
+    <div className="grid grid-cols-5 gap-4 mb-6">
+    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+        <div key={day} className="p-4 border rounded">
+        <h3 className="text-lg font-semibold mb-4">{day}</h3>
+        <div className="flex flex-col gap-2 mb-4">
+            {/* AM Checkbox */}
+            <label className="inline-flex items-center gap-2">
+            <input
+                type="checkbox"
+                checked={availability[day].includes("AM")}
+                onChange={(e) => handleAvailabilityChange(day, "AM", e.target.checked)}
+                className="form-checkbox"
+            />
+            <span>AM</span>
+            </label>
+            
+            {/* PM Checkbox */}
+            <label className="inline-flex items-center gap-2">
+            <input
+                type="checkbox"
+                checked={availability[day].includes("PM")}
+                onChange={(e) => handleAvailabilityChange(day, "PM", e.target.checked)}
+                className="form-checkbox"
+            />
+            <span>PM</span>
+            </label>
+        </div>
+        </div>
+    ))}
+    </div>
 
-      <button
-        onClick={handleSubmitAvailability}
-        className="bg-green-500 text-white p-3 rounded mt-4"
-        disabled={savingAvailability}
-      >
-        {savingAvailability ? "Saving..." : "Save Availability"}
-      </button>
+    <button
+    onClick={handleSubmitAvailability}
+    className="bg-green-500 text-white p-3 rounded mt-4"
+    disabled={savingAvailability}
+    >
+    {savingAvailability ? "Saving..." : "Save Availability"}
+    </button>
+
     </main>
   );
 }
