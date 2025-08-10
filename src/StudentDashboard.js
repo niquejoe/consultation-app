@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where, orderBy, doc, updateDoc } from "firebase/firestore";
+import {
+  collection, getDocs, query, where, orderBy,
+  doc, updateDoc, getDoc
+} from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
   const [slots, setSlots] = useState([]);
@@ -129,9 +132,10 @@ export default function StudentDashboard({ user }) {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 text-gray-700">
                 <tr>
-                  <th className="px-4 py-3 text-left">Professor Name</th>
-                  <th className="px-4 py-3 text-left">Department</th>
-                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Date & Time</th>
+                  <th className="px-4 py-3 text-left">Professor</th>
+                  <th className="px-4 py-3 text-left">Topic</th>
+                  <th className="px-4 py-3 text-left">Mode</th>
                   <th className="px-4 py-3 text-left">Action</th>
                 </tr>
               </thead>
@@ -141,9 +145,10 @@ export default function StudentDashboard({ user }) {
                   const disabled = reservingId === s.id;
                   return (
                     <tr key={s.id} className="border-t">
+                      <td className="px-4 py-3">{dt.toLocaleString()}</td>
                       <td className="px-4 py-3">{s.professorName || "—"}</td>
-                      <td className="px-4 py-3">{s.department || "—"}</td>
-                      <td className="px-4 py-3">{s.status || "Available"}</td>
+                      <td className="px-4 py-3">{s.topic || "General Consultation"}</td>
+                      <td className="px-4 py-3">{s.mode || "—"}</td>
                       <td className="px-4 py-3">
                         <button
                           disabled={disabled}
@@ -153,7 +158,7 @@ export default function StudentDashboard({ user }) {
                               ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                               : "bg-[#f37021] hover:bg-[#d35616] text-white"}`}
                         >
-                          {disabled ? "Opening…" : "Schedule"}
+                          {disabled ? "Opening…" : "Reserve"}
                         </button>
                       </td>
                     </tr>
