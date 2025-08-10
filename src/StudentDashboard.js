@@ -22,27 +22,34 @@ export default function StudentDashboard({ user }) {
     setError(null);
     setOk(null);
     try {
+      console.log("Fetching schedules...");
+  
       // Fetch all schedules from the 'schedules' collection for all professors
-      const schedulesRef = collection(db, "schedules");  // Reference to the schedules collection
-      const schedulesSnap = await getDocs(schedulesRef);  // Get all documents in the collection
+      const schedulesRef = collection(db, "schedules");
+      const schedulesSnap = await getDocs(schedulesRef); // Fetch all documents
   
       if (schedulesSnap.empty) {
+        console.log("No schedules found.");
         setError("No schedules found for professors.");
         return;
       }
   
+      console.log("Schedules found:", schedulesSnap.size);
+  
       const allSlots = [];
       const professorDetailsPromises = [];
   
+      // Loop over each schedule document
       schedulesSnap.forEach((doc) => {
         const scheduleData = doc.data();
-        const professorId = doc.id;  // Use the document ID as the professor's ID
+        const professorId = doc.id;  // Document ID is the professor's ID
+        console.log("Fetching details for professor:", professorId);
   
-        // Fetch the professor's details from the 'users' collection using professorId
+        // Fetch professor details from 'users' collection
         const professorDetailsPromise = getDoc(doc(db, "users", professorId));
         professorDetailsPromises.push(professorDetailsPromise);
   
-        // Format the schedule data for easy display (e.g., "Monday: AM, PM")
+        // Format the schedule data
         Object.entries(scheduleData).forEach(([day, times]) => {
           allSlots.push({
             professorId,
@@ -52,10 +59,12 @@ export default function StudentDashboard({ user }) {
         });
       });
   
-      // Wait for all professor details to be fetched (using Promise.all for concurrent fetching)
+      console.log("Waiting for professor details...");
+      // Wait for all professor details
       const professorDetailsSnapshots = await Promise.all(professorDetailsPromises);
+      console.log("Professor details fetched:", professorDetailsSnapshots.length);
   
-      // Add professor name and other details to each slot
+      // Add professor details to the slots
       allSlots.forEach((slot, index) => {
         const professorInfo = professorDetailsSnapshots[index];
         if (professorInfo.exists()) {
@@ -68,12 +77,13 @@ export default function StudentDashboard({ user }) {
   
       setSlots(allSlots);  // Store all the available slots with professor details
     } catch (e) {
-      console.error(e);
+      console.error("Error loading schedules:", e);
       setError("Failed to load schedules.");
     } finally {
       setLoading(false);
     }
   };
+  
   
   
 
