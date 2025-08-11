@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
   const [slots, setSlots] = useState([]); // All available slots from all professors
@@ -24,7 +24,7 @@ export default function StudentDashboard({ user }) {
 
       console.log("Schedules found:", schedulesSnap.size);
 
-      const allSlots = [];
+      const professorSchedules = {}; // To store professor data with their combined schedules
 
       // Iterate through each schedule document
       for (const doc of schedulesSnap.docs) {
@@ -50,13 +50,19 @@ export default function StudentDashboard({ user }) {
         });
 
         if (profData) {
-          // Add schedule data along with professor details
-          Object.entries(scheduleData).forEach(([day, times]) => {
-            allSlots.push({
-              professorId,
+          // If professor data is found, add schedule data to the professorSchedules object
+          if (!professorSchedules[professorId]) {
+            professorSchedules[professorId] = {
               professorName: profData.name,
               professorDepartment: profData.department,
               status: "available", // Default status as "available"
+              schedules: [],
+            };
+          }
+
+          // Add schedule data to the professor's entry
+          Object.entries(scheduleData).forEach(([day, times]) => {
+            professorSchedules[professorId].schedules.push({
               day,
               times,
             });
@@ -64,6 +70,8 @@ export default function StudentDashboard({ user }) {
         }
       }
 
+      // Convert professorSchedules object to an array for rendering in the table
+      const allSlots = Object.values(professorSchedules);
       setSlots(allSlots); // Store all the available slots with professor details
     } catch (e) {
       console.error("Error loading schedules:", e);
@@ -112,15 +120,20 @@ export default function StudentDashboard({ user }) {
                 </tr>
               </thead>
               <tbody>
-                {slots.map((slot, index) => {
+                {slots.map((slot) => {
+                  // Combine the days and times into a single string
+                  const scheduleString = slot.schedules
+                    .map(
+                      (schedule) => `${schedule.day}: ${schedule.times.join(", ")}`
+                    )
+                    .join(" | ");
+
                   return (
-                    <tr key={`${slot.professorId}-${slot.day}-${index}`} className="border-t">
+                    <tr key={`${slot.professorName}`} className="border-t">
                       <td className="px-4 py-3">{slot.professorName}</td>
                       <td className="px-4 py-3">{slot.professorDepartment}</td>
                       <td className="px-4 py-3">{slot.status}</td>
-                      <td className="px-4 py-3">
-                        {slot.day} - {slot.times.join(", ")}
-                      </td>
+                      <td className="px-4 py-3">{scheduleString}</td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => openReserve(slot)}
