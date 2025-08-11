@@ -41,7 +41,7 @@ export default function StudentDashboard({ user }) {
       
       schedulesSnap.forEach(async (doc) => {
         const scheduleData = doc.data();
-        const professorId = doc.id;  
+        const professorId = doc.id();  
         console.log("Fetching details for professor:", professorId);
   
 
