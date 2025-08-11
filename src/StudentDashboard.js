@@ -18,88 +18,85 @@ export default function StudentDashboard({ user }) {
   const [thesisTitle, setThesisTitle] = useState("");
 
   const load = async () => {
-      setLoading(true);
-      setError(null);
-      setOk(null);
-      try {
-        console.log("Fetching schedules...");
+    setLoading(true);
+    setError(null);
+    setOk(null);
+    try {
+      console.log("Fetching schedules...");
 
-        const schedulesRef = collection(db, "schedules");
-        const schedulesSnap = await getDocs(schedulesRef);
+      const schedulesRef = collection(db, "schedules");
+      const schedulesSnap = await getDocs(schedulesRef);
+  
+      if (schedulesSnap.empty) {
+        console.log("No schedules found.");
+        setError("No schedules found for professors.");
+        return;
+      }
+  
+      console.log("Schedules found:", schedulesSnap.size);
+  
+      const allSlots = [];
+      const professorDetailsPromises = [];
+  
+      
+      schedulesSnap.forEach(async (doc) => {
+        const scheduleData = doc.data();
+        const professorId = doc.id;  
+        console.log("Fetching details for professor:", professorId);
+  
 
-        if (schedulesSnap.empty) {
-          console.log("No schedules found.");
-          setError("No schedules found for professors.");
-          return;
-        }
+        //const profdataRef = collection(db, "users").doc(professorId).get();
+        const profdataRef = db.collection('users').doc(professorId).get();
+        const profSnap = await getDocs(profdataRef);
 
-        console.log("Schedules found:", schedulesSnap.size);
-
-        const allSlots = [];
-        const professorDetailsPromises = [];
-
-        // Use a for...of loop instead of forEach to handle async calls
-        for (const scheduleDoc of schedulesSnap.docs) {
-          const scheduleData = scheduleDoc.data();
-          const professorId = scheduleDoc.id;
-          console.log("Fetching details for professor:", professorId);
-
-          // Correct way to reference a document
-          const profdataRef = doc(db, "users", professorId);
-          const profSnap = await getDoc(profdataRef);
-
-          // Check if the professor document exists
-          if (profSnap.exists()) {
-            const profData = profSnap.data();
-            console.log("Show profData:", profData);
-            // Add any additional logic for the professor data here
-          } else {
-            console.log("No professor data found for:", professorId);
-          }
-
-          // Process the schedule data
-          Object.entries(scheduleData).forEach(([day, times]) => {
-            allSlots.push({
-              professorId,
-              day,
-              times,
-            });
-          });
-        }
-
-        console.log("Waiting for professor details...");
-        // Wait for all professor details using Promise.all (if you are handling multiple promises)
-        await Promise.all(professorDetailsPromises);
-
-        console.log("Professor details fetched:", professorDetailsPromises.length);
-
-        // Add professor details to the slots
-        allSlots.forEach((slot, index) => {
-          // Since the professor details should have already been fetched synchronously, 
-          // you can directly assign values here
-          const professorInfo = professorDetailsSnapshots[index];
-          if (professorInfo.exists()) {
-            const professorData = professorInfo.data();
-            console.log(`Professor Data for ${slot.professorId}:`, professorData);
-            slot.professorName = professorData.name;
-            slot.professorEmail = professorData.email;
-            slot.professorDepartment = professorData.department;
-          } else {
-            console.log(`No professor data found for ${slot.professorId}`);
-            slot.professorName = "Unknown Professor";  // Default value if data is missing
-            slot.professorEmail = "N/A";
-            slot.professorDepartment = "N/A";
-          }
+        profSnap.forEach((docu) =>{
+          const profData = docu.data();
+          console.log("Show profData:", profData);
         });
 
-        setSlots(allSlots);  // Store all the available slots with professor details
-      } catch (e) {
-        console.error("Error loading schedules:", e);
-        setError("Failed to load schedules.");
-      } finally {
-        setLoading(false);
-      }
-    };
+        //const professorDetailsPromise = getDoc(doc(db, "users", professorId));
+        //professorDetailsPromises.push(professorDetailsPromise);
+  
+       
+        Object.entries(scheduleData).forEach(([day, times]) => {
+          allSlots.push({
+            professorId,
+            day,
+            times,
+          });
+        });
+      });
+  
+      console.log("Waiting for professor details...");
+      // Wait for all professor details using Promise.all
+      const professorDetailsSnapshots = await Promise.all(professorDetailsPromises);
+      console.log("Professor details fetched:", professorDetailsSnapshots.length);
+  
+      // Add professor details to the slots
+      allSlots.forEach((slot, index) => {
+        const professorInfo = professorDetailsSnapshots[index];
+        if (professorInfo.exists()) {
+          const professorData = professorInfo.data();
+          console.log(`Professor Data for ${slot.professorId}:`, professorData);
+          slot.professorName = professorData.name;
+          slot.professorEmail = professorData.email;
+          slot.professorDepartment = professorData.department;
+        } else {
+          console.log(`No professor data found for ${slot.professorId}`);
+          slot.professorName = "Unknown Professor";  // Default value if data is missing
+          slot.professorEmail = "N/A";
+          slot.professorDepartment = "N/A";
+        }
+      });
+  
+      setSlots(allSlots);  // Store all the available slots with professor details
+    } catch (e) {
+      console.error("Error loading schedules:", e);
+      setError("Failed to load schedules.");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   
 
