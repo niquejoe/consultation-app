@@ -49,7 +49,7 @@ export default function StudentDashboard({ user }) {
         const profdataRef = collection(db, "users");
         const profSnap = await getDocs(profdataRef);
 
-        profSnap.forEach((docu) =>{
+        profSnap.forEach(async (docu) =>{
           const profData = docu.data();
           const profDataID = docu.id();
           console.log("Show profData:", profData);
