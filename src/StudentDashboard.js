@@ -46,13 +46,23 @@ export default function StudentDashboard({ user }) {
   
 
         //const profdataRef = collection(db, "users").doc(professorId).get();
-        const profdataRef = db.collection('users').doc(professorId).get();
+        /* const profdataRef = db.collection('users').doc(professorId).get();
         const profSnap = await getDocs(profdataRef);
 
         profSnap.forEach((docu) =>{
           const profData = docu.data();
           console.log("Show profData:", profData);
-        });
+        }); */
+
+        const profdataRef = doc(db, "users", professorId);
+        const profSnap = await getDoc(profdataRef);
+
+        if (profSnap.exists()) {
+          const profData = profSnap.data();
+          console.log("Show profData:", profData);
+        } else {
+          console.log("No professor data found for:", professorId);
+        }
 
         //const professorDetailsPromise = getDoc(doc(db, "users", professorId));
         //professorDetailsPromises.push(professorDetailsPromise);
