@@ -52,8 +52,11 @@ export default function StudentDashboard({ user }) {
         profSnap.forEach(async (docu) =>{
           const profData = docu.data();
           const profDataID = docu.id;
-          console.log("Show profData:", profData);
-          console.log("Show profData ID:", profDataID);
+
+          if(profDataID == professorId){
+            console.log("Show profData:", profData);
+          }
+    
         });
 
         //const professorDetailsPromise = getDoc(doc(db, "users", professorId));
