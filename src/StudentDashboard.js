@@ -117,7 +117,7 @@ export default function StudentDashboard({ user }) {
                     .map(
                       (schedule) => `${schedule.day}: ${schedule.times.join(", ")}`
                     )
-                    .join(" | ");
+                    .join("</br>");
 
                   return (
                     <tr key={`${slot.professorName}`} className="border-t">
