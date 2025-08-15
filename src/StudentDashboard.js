@@ -113,7 +113,7 @@ export default function StudentDashboard({ user }) {
               </thead>
               <tbody>
                 {slots.map((slot) => {
-                  
+
                   const dayOrder = {
                     Monday: 1,
                     Tuesday: 2,
