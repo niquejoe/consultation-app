@@ -113,14 +113,24 @@ export default function StudentDashboard({ user }) {
               </thead>
               <tbody>
                 {slots.map((slot) => {
-                  const scheduleString = slot.schedules
-                    .map(
-                      (schedule) => `${schedule.day}: ${schedule.times.join(", ")}`
-                    )
-                    .join("</br>");
+                  
+                  const dayOrder = {
+                    Monday: 1,
+                    Tuesday: 2,
+                    Wednesday: 3,
+                    Thursday: 4,
+                    Friday: 5,
+                  };
+                  const sortedSchedules = [...slot.schedules].sort(
+                    (a, b) => dayOrder[a.day] - dayOrder[b.day]
+                  );
+
+                  const scheduleString = sortedSchedules
+                    .map((schedule) => `${schedule.day}: ${schedule.times.join(", ")}`)
+                    .join(" | ");
 
                   return (
-                    <tr key={`${slot.professorName}`} className="border-t">
+                    <tr key={slot.professorName} className="border-t">
                       <td className="px-4 py-3">{slot.professorName}</td>
                       <td className="px-4 py-3">{slot.professorDepartment}</td>
                       <td className="px-4 py-3">{slot.status}</td>
