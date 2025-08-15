@@ -18,89 +18,61 @@ export default function StudentDashboard({ user }) {
   const [groupSize, setGroupSize] = useState(2);
 
   const [selectedDay, setSelectedDay] = useState("");
-  const [timePeriod, setTimePeriod] = useState("AM"); // AM | PM | Both
   const [timeSlot, setTimeSlot] = useState("");
 
   const dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
-
-  const buildTimeSlots = (period) => {
-    const am = [
-      "8:00 AM - 9:00 AM",
-      "9:00 AM - 10:00 AM",
-      "10:00 AM - 11:00 AM",
-      "11:00 AM - 12:00 PM",
-    ];
-    const pm = [
-      "1:00 PM - 2:00 PM",
-      "2:00 PM - 3:00 PM",
-      "3:00 PM - 4:00 PM",
-      "4:00 PM - 5:00 PM",
-      "5:00 PM - 6:00 PM",
-      "6:00 PM - 7:00 PM",
-    ];
-    if (period === "AM") return am;
-    if (period === "PM") return pm;
-    return [...am, ...pm];
-  };
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      console.log("Fetching schedules...");
-
       const schedulesRef = collection(db, "schedules");
       const schedulesSnap = await getDocs(schedulesRef);
 
       if (schedulesSnap.empty) {
-        console.log("No schedules found.");
         setError("No schedules found for professors.");
         setSlots([]);
         return;
       }
 
-      console.log("Schedules found:", schedulesSnap.size);
-
       const professorSchedules = {};
 
+      // Build professor -> schedules
       for (const docu of schedulesSnap.docs) {
         const scheduleData = docu.data();
         const professorId = docu.id;
-        console.log("Fetching details for professor:", professorId);
 
-        // get all users then match id (kept as in your code)
-        const profdataRef = collection(db, "users");
-        const profSnap = await getDocs(profdataRef);
+        // NOTE: Keeping your existing pattern (scan all users then match id)
+        // to avoid rules issues with direct doc() reads.
+        const usersRef = collection(db, "users");
+        const usersSnap = await getDocs(usersRef);
 
         let profData = null;
-        profSnap.forEach((u) => {
-          const data = u.data();
-          const profDataID = u.id;
-          if (profDataID === professorId) {
-            profData = data;
-          }
+        usersSnap.forEach((u) => {
+          if (u.id === professorId) profData = u.data();
         });
 
-        if (profData) {
-          if (!professorSchedules[professorId]) {
-            professorSchedules[professorId] = {
-              professorId,
-              professorName: profData.name,
-              professorDepartment: profData.department,
-              status: "available",
-              schedules: [],
-            };
-          }
+        if (!profData) continue;
 
-          Object.entries(scheduleData).forEach(([day, times]) => {
-            professorSchedules[professorId].schedules.push({ day, times });
-          });
+        if (!professorSchedules[professorId]) {
+          professorSchedules[professorId] = {
+            professorId,
+            professorName: profData.name,
+            professorDepartment: profData.department,
+            status: "available",
+            schedules: [],
+          };
         }
+
+        Object.entries(scheduleData).forEach(([day, times]) => {
+          professorSchedules[professorId].schedules.push({ day, times });
+        });
       }
 
+      // Sort days (Mon-Fri) for each professor
       const allSlots = Object.values(professorSchedules).map((slot) => {
         const sortedSchedules = [...slot.schedules].sort(
-          (a, b) => dayOrder[a.day] - dayOrder[b.day]
+          (a, b) => (dayOrder[a.day] || 99) - (dayOrder[b.day] || 99)
         );
         return { ...slot, schedules: sortedSchedules };
       });
@@ -121,16 +93,13 @@ export default function StudentDashboard({ user }) {
 
   const openReserve = (slot) => {
     setActiveSlot(slot);
-    // default day = first available day of this professor
     const firstDay = slot?.schedules?.[0]?.day || "";
     setSelectedDay(firstDay);
-    // reset form bits
+    setTimeSlot("");
     setConsultationType("General Consultation");
     setThesisTitle("");
     setBookingType("individual");
     setGroupSize(2);
-    setTimePeriod("AM");
-    setTimeSlot("");
     setShowModal(true);
   };
 
@@ -139,7 +108,7 @@ export default function StudentDashboard({ user }) {
     setActiveSlot(null);
   };
 
-  const handleSubmitReservation = (e) => {
+  const handleSubmitReservation = async (e) => {
     e.preventDefault();
 
     // Basic validation
@@ -169,8 +138,7 @@ export default function StudentDashboard({ user }) {
       bookingType,
       groupSize: bookingType === "group" ? Number(groupSize) : 1,
       selectedDay,
-      timePeriod,
-      timeSlot,
+      timeSlot, // directly from professor's stored times for that day
       requester: user ? { uid: user.uid, email: user.email } : null,
       status: "pending",
       createdAt: new Date().toISOString(),
@@ -178,10 +146,11 @@ export default function StudentDashboard({ user }) {
 
     console.log("Reservation payload:", payload);
 
-    // TODO: Save to Firestore (appointments) if desired
-    // await addDoc(collection(db, "appointments"), payload)
+    // TODO: Save to Firestore (appointments) respecting your rules
+    // import { addDoc } from "firebase/firestore";
+    // await addDoc(collection(db, "appointments"), payload);
 
-    alert("Reservation details captured. (Check console)"); // replace with real success UI
+    alert("Reservation details captured. (Check console)");
     closeModal();
   };
 
@@ -189,6 +158,7 @@ export default function StudentDashboard({ user }) {
     <main className="mx-auto max-w-5xl px-4 py-6">
       <div className="space-y-4">
         <h1 className="text-xl font-semibold text-gray-800">Available Consultation Slots</h1>
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3">
             {error}
@@ -365,7 +335,7 @@ export default function StudentDashboard({ user }) {
                 </div>
               )}
 
-              {/* Day select (from this professor’s schedules) */}
+              {/* Day select */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Choose Day
@@ -373,7 +343,10 @@ export default function StudentDashboard({ user }) {
                 <select
                   className="w-full border rounded p-2"
                   value={selectedDay}
-                  onChange={(e) => setSelectedDay(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedDay(e.target.value);
+                    setTimeSlot("");
+                  }}
                 >
                   {activeSlot.schedules.map((s) => (
                     <option key={s.day} value={s.day}>
@@ -383,55 +356,7 @@ export default function StudentDashboard({ user }) {
                 </select>
               </div>
 
-              {/* Time period */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Time Period
-                </label>
-                <div className="flex items-center gap-4">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="timePeriod"
-                      value="AM"
-                      checked={timePeriod === "AM"}
-                      onChange={(e) => {
-                        setTimePeriod(e.target.value);
-                        setTimeSlot("");
-                      }}
-                    />
-                    <span>AM</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="timePeriod"
-                      value="PM"
-                      checked={timePeriod === "PM"}
-                      onChange={(e) => {
-                        setTimePeriod(e.target.value);
-                        setTimeSlot("");
-                      }}
-                    />
-                    <span>PM</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="timePeriod"
-                      value="Both"
-                      checked={timePeriod === "Both"}
-                      onChange={(e) => {
-                        setTimePeriod(e.target.value);
-                        setTimeSlot("");
-                      }}
-                    />
-                    <span>Both</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Time slot list */}
+              {/* Time slot list — directly from professor's stored times for that day */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Choose Time
@@ -444,15 +369,14 @@ export default function StudentDashboard({ user }) {
                   <option value="" disabled>
                     Select a time slot
                   </option>
-                  {buildTimeSlots(timePeriod).map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  {activeSlot.schedules
+                    .find((s) => s.day === selectedDay)
+                    ?.times.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  AM: 8:00–12:00 · PM: 1:00–7:00
-                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
