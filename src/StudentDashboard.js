@@ -12,15 +12,57 @@ export default function StudentDashboard({ user }) {
   const [activeSlot, setActiveSlot] = useState(null);
 
   // Form state
-  const [consultationType, setConsultationType] = useState("General Consultation"); // Thesis/Capstone | Grades Related | General Consultation
+  const [consultationType, setConsultationType] = useState("General Consultation");
   const [thesisTitle, setThesisTitle] = useState("");
-  const [bookingType, setBookingType] = useState("individual"); // individual | group
+  const [bookingType, setBookingType] = useState("individual");
   const [groupSize, setGroupSize] = useState(2);
-
   const [selectedDay, setSelectedDay] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
 
   const dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
+
+  // ---- Time expansion helpers ----
+  const AM_SLOTS = [
+    "8:00 AM - 9:00 AM",
+    "9:00 AM - 10:00 AM",
+    "10:00 AM - 11:00 AM",
+    "11:00 AM - 12:00 PM",
+  ];
+  const PM_SLOTS = [
+    "1:00 PM - 2:00 PM",
+    "2:00 PM - 3:00 PM",
+    "3:00 PM - 4:00 PM",
+    "4:00 PM - 5:00 PM",
+    "5:00 PM - 6:00 PM",
+    "6:00 PM - 7:00 PM",
+  ];
+
+  // Expand ["AM"], ["PM"], ["AM","PM"] -> concrete slots; keep explicit ranges as-is
+  function expandTimes(tokensOrSlots = []) {
+    const out = new Set();
+    const norm = (s) => String(s).trim().toUpperCase();
+
+    tokensOrSlots.forEach((t) => {
+      const n = norm(t);
+      if (n === "AM") AM_SLOTS.forEach((s) => out.add(s));
+      else if (n === "PM") PM_SLOTS.forEach((s) => out.add(s));
+      else if (n === "BOTH" || n === "AM/PM" || n === "AMPM") {
+        [...AM_SLOTS, ...PM_SLOTS].forEach((s) => out.add(s));
+      } else {
+        out.add(t); // already a concrete range like "2:00 PM - 3:00 PM"
+      }
+    });
+
+    const master = [...AM_SLOTS, ...PM_SLOTS];
+    return Array.from(out).sort((a, b) => {
+      const ia = master.indexOf(a);
+      const ib = master.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }
 
   const load = async () => {
     setLoading(true);
@@ -37,13 +79,11 @@ export default function StudentDashboard({ user }) {
 
       const professorSchedules = {};
 
-      // Build professor -> schedules
       for (const docu of schedulesSnap.docs) {
         const scheduleData = docu.data();
         const professorId = docu.id;
 
-        // NOTE: Keeping your existing pattern (scan all users then match id)
-        // to avoid rules issues with direct doc() reads.
+        // Your existing approach: get all users and match by id
         const usersRef = collection(db, "users");
         const usersSnap = await getDocs(usersRef);
 
@@ -64,12 +104,12 @@ export default function StudentDashboard({ user }) {
           };
         }
 
+        // scheduleData shape: { Monday: ["AM"] | ["PM"] | ["AM","PM"] | ["1:00 PM - 2:00 PM", ...], ... }
         Object.entries(scheduleData).forEach(([day, times]) => {
           professorSchedules[professorId].schedules.push({ day, times });
         });
       }
 
-      // Sort days (Mon-Fri) for each professor
       const allSlots = Object.values(professorSchedules).map((slot) => {
         const sortedSchedules = [...slot.schedules].sort(
           (a, b) => (dayOrder[a.day] || 99) - (dayOrder[b.day] || 99)
@@ -111,22 +151,13 @@ export default function StudentDashboard({ user }) {
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
 
-    // Basic validation
-    if (!selectedDay) {
-      alert("Please select a day.");
-      return;
-    }
-    if (!timeSlot) {
-      alert("Please select a time slot.");
-      return;
-    }
+    if (!selectedDay) return alert("Please select a day.");
+    if (!timeSlot) return alert("Please select a time slot.");
     if (consultationType === "Thesis/Capstone" && !thesisTitle.trim()) {
-      alert("Please enter your Thesis/Capstone title.");
-      return;
+      return alert("Please enter your Thesis/Capstone title.");
     }
     if (bookingType === "group" && (!groupSize || Number(groupSize) < 2)) {
-      alert("Group size must be at least 2.");
-      return;
+      return alert("Group size must be at least 2.");
     }
 
     const payload = {
@@ -138,7 +169,7 @@ export default function StudentDashboard({ user }) {
       bookingType,
       groupSize: bookingType === "group" ? Number(groupSize) : 1,
       selectedDay,
-      timeSlot, // directly from professor's stored times for that day
+      timeSlot, // this is a 1-hour slot (expanded)
       requester: user ? { uid: user.uid, email: user.email } : null,
       status: "pending",
       createdAt: new Date().toISOString(),
@@ -146,10 +177,7 @@ export default function StudentDashboard({ user }) {
 
     console.log("Reservation payload:", payload);
 
-    // TODO: Save to Firestore (appointments) respecting your rules
-    // import { addDoc } from "firebase/firestore";
-    // await addDoc(collection(db, "appointments"), payload);
-
+    // TODO: addDoc(collection(db, "appointments"), payload);
     alert("Reservation details captured. (Check console)");
     closeModal();
   };
@@ -189,6 +217,7 @@ export default function StudentDashboard({ user }) {
               </thead>
               <tbody>
                 {slots.map((slot) => {
+                  // For display in the table, keep the raw tokens (AM/PM) so students see what’s available at a glance.
                   const scheduleString = slot.schedules
                     .map((s) => `${s.day}: ${s.times.join(", ")}`)
                     .join(" | ");
@@ -356,27 +385,31 @@ export default function StudentDashboard({ user }) {
                 </select>
               </div>
 
-              {/* Time slot list — directly from professor's stored times for that day */}
+              {/* Time slot list — expand AM/PM tokens to 1-hour slots */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Choose Time
                 </label>
-                <select
-                  className="w-full border rounded p-2"
-                  value={timeSlot}
-                  onChange={(e) => setTimeSlot(e.target.value)}
-                >
-                  <option value="" disabled>
-                    Select a time slot
-                  </option>
-                  {activeSlot.schedules
-                    .find((s) => s.day === selectedDay)
-                    ?.times.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
+                {(() => {
+                  const dayObj = activeSlot.schedules.find((s) => s.day === selectedDay);
+                  const expanded = expandTimes(dayObj?.times || []);
+                  return (
+                    <select
+                      className="w-full border rounded p-2"
+                      value={timeSlot}
+                      onChange={(e) => setTimeSlot(e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Select a time slot
                       </option>
-                    ))}
-                </select>
+                      {expanded.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                  );
+                })()}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
