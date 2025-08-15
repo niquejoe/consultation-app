@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { collection, getDocs } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
   const [slots, setSlots] = useState([]);
@@ -18,6 +25,7 @@ export default function StudentDashboard({ user }) {
   const [groupSize, setGroupSize] = useState(2);
   const [selectedDay, setSelectedDay] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5 };
 
@@ -64,6 +72,48 @@ export default function StudentDashboard({ user }) {
     });
   }
 
+  // Convert "1:00 PM - 2:00 PM" -> { start: "13:00", end: "14:00" }
+  function to24h(timeLabel) {
+    const [startLabel, endLabel] = timeLabel.split(" - ").map((s) => s.trim());
+    const to24 = (s) => {
+      const d = new Date(`1970-01-01 ${s}`);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    };
+    return { start: to24(startLabel), end: to24(endLabel) };
+  }
+
+  // Next date object for the selected day of week (relative to "now")
+  function getNextDateForDay(dayName) {
+    const days = {
+      Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3,
+      Thursday: 4, Friday: 5, Saturday: 6,
+    };
+    const target = days[dayName];
+    if (target == null) return null;
+
+    const now = new Date();
+    const result = new Date(now);
+    const diff = (target + 7 - now.getDay()) % 7;
+    result.setDate(now.getDate() + diff);
+    // zero time fields — we'll store dateISO separately and keep times as labels/HH:MM
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }
+
+  function toDateISO(dateObj) {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function buildApptDocId(professorId, dateISO, startHHMM) {
+    return `${professorId}_${dateISO.replace(/-/g, "")}_${startHHMM.replace(":", "")}`;
+  }
+
+  // -------- Load weekly schedules (your existing shape) --------
   const load = async () => {
     setLoading(true);
     setError(null);
@@ -83,7 +133,7 @@ export default function StudentDashboard({ user }) {
         const scheduleData = docu.data();
         const professorId = docu.id;
 
-        // Your existing approach: get all users and match by id
+        // Your current approach: list users and match by id
         const usersRef = collection(db, "users");
         const usersSnap = await getDocs(usersRef);
 
@@ -104,7 +154,6 @@ export default function StudentDashboard({ user }) {
           };
         }
 
-        // scheduleData shape: { Monday: ["AM"] | ["PM"] | ["AM","PM"] | ["1:00 PM - 2:00 PM", ...], ... }
         Object.entries(scheduleData).forEach(([day, times]) => {
           professorSchedules[professorId].schedules.push({ day, times });
         });
@@ -148,9 +197,9 @@ export default function StudentDashboard({ user }) {
     setActiveSlot(null);
   };
 
+  // -------------- Create & save reservation --------------
   const handleSubmitReservation = async (e) => {
     e.preventDefault();
-
     if (!selectedDay) return alert("Please select a day.");
     if (!timeSlot) return alert("Please select a time slot.");
     if (consultationType === "Thesis/Capstone" && !thesisTitle.trim()) {
@@ -160,26 +209,61 @@ export default function StudentDashboard({ user }) {
       return alert("Group size must be at least 2.");
     }
 
+    const nextDate = getNextDateForDay(selectedDay);
+    if (!nextDate) return alert("Invalid day selected.");
+    const dateISO = toDateISO(nextDate);
+
+    const { start, end } = to24h(timeSlot);
+    const apptId = buildApptDocId(activeSlot.professorId, dateISO, start);
+
     const payload = {
-      professorId: activeSlot?.professorId,
-      professorName: activeSlot?.professorName,
-      professorDepartment: activeSlot?.professorDepartment,
+      professorId: activeSlot.professorId,
+      professorName: activeSlot.professorName,
+      professorDepartment: activeSlot.professorDepartment,
+
+      dateISO,                  // YYYY-MM-DD
+      dayOfWeek: selectedDay,   // denormalized
+      startTime: start,         // "13:00"
+      endTime: end,             // "14:00"
+      timeLabel: timeSlot,      // "1:00 PM - 2:00 PM"
+
       consultationType,
       thesisTitle: consultationType === "Thesis/Capstone" ? thesisTitle.trim() : "",
-      bookingType,
+
+      bookingType,              // "individual" | "group"
       groupSize: bookingType === "group" ? Number(groupSize) : 1,
-      selectedDay,
-      timeSlot, // this is a 1-hour slot (expanded)
-      requester: user ? { uid: user.uid, email: user.email } : null,
-      status: "pending",
-      createdAt: new Date().toISOString(),
+
+      status: "pending",        // <--- default status
+      requester: user
+        ? { uid: user.uid, email: user.email || null }
+        : null,
+
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     };
 
-    console.log("Reservation payload:", payload);
+    setSaving(true);
+    try {
+      const apptRef = doc(db, "appt", apptId);
 
-    // TODO: addDoc(collection(db, "appointments"), payload);
-    alert("Reservation details captured. (Check console)");
-    closeModal();
+      // Prevent overwrite (double-booking): check existence first
+      const existing = await getDoc(apptRef);
+      if (existing.exists()) {
+        alert("Sorry, this time slot was just taken. Please choose another.");
+        setSaving(false);
+        return;
+      }
+
+      await setDoc(apptRef, payload, { merge: false });
+
+      alert("Reservation submitted! Waiting for professor approval.");
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to submit reservation. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -217,7 +301,6 @@ export default function StudentDashboard({ user }) {
               </thead>
               <tbody>
                 {slots.map((slot) => {
-                  // For display in the table, keep the raw tokens (AM/PM) so students see what’s available at a glance.
                   const scheduleString = slot.schedules
                     .map((s) => `${s.day}: ${s.times.join(", ")}`)
                     .join(" | ");
@@ -417,14 +500,16 @@ export default function StudentDashboard({ user }) {
                   type="button"
                   onClick={closeModal}
                   className="rounded-md px-3 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  disabled={saving}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-md px-3 py-2 bg-[#f37021] hover:bg-[#d35616] text-white"
+                  className="rounded-md px-3 py-2 bg-[#f37021] hover:bg-[#d35616] text-white disabled:opacity-60"
+                  disabled={saving}
                 >
-                  Confirm Reservation
+                  {saving ? "Saving…" : "Confirm Reservation"}
                 </button>
               </div>
             </form>
