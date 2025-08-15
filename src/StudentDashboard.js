@@ -3,7 +3,7 @@ import { db } from "./firebaseConfig";
 import { collection, getDocs } from "firebase/firestore";
 
 export default function StudentDashboard({ user }) {
-  const [slots, setSlots] = useState([]); // All available slots from all professors
+  const [slots, setSlots] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -24,15 +24,13 @@ export default function StudentDashboard({ user }) {
 
       console.log("Schedules found:", schedulesSnap.size);
 
-      const professorSchedules = {}; // To store professor data with their combined schedules
+      const professorSchedules = {}; 
 
-      // Iterate through each schedule document
       for (const doc of schedulesSnap.docs) {
         const scheduleData = doc.data();
         const professorId = doc.id;
         console.log("Fetching details for professor:", professorId);
 
-        // Fetch professor data
         const profdataRef = collection(db, "users");
         const profSnap = await getDocs(profdataRef);
 
@@ -42,25 +40,22 @@ export default function StudentDashboard({ user }) {
           const data = docu.data();
           const profDataID = docu.id;
 
-          // Match the professorId
           if (profDataID === professorId) {
-            profData = data; // Save the professor data if the IDs match
+            profData = data; 
             console.log("Show profData:", profData);
           }
         });
 
         if (profData) {
-          // If professor data is found, add schedule data to the professorSchedules object
           if (!professorSchedules[professorId]) {
             professorSchedules[professorId] = {
               professorName: profData.name,
               professorDepartment: profData.department,
-              status: "available", // Default status as "available"
+              status: "available", 
               schedules: [],
             };
           }
 
-          // Add schedule data to the professor's entry
           Object.entries(scheduleData).forEach(([day, times]) => {
             professorSchedules[professorId].schedules.push({
               day,
@@ -70,9 +65,8 @@ export default function StudentDashboard({ user }) {
         }
       }
 
-      // Convert professorSchedules object to an array for rendering in the table
       const allSlots = Object.values(professorSchedules);
-      setSlots(allSlots); // Store all the available slots with professor details
+      setSlots(allSlots); 
     } catch (e) {
       console.error("Error loading schedules:", e);
       setError("Failed to load schedules.");
@@ -82,19 +76,17 @@ export default function StudentDashboard({ user }) {
   };
 
   useEffect(() => {
-    load(); // Load the schedules when the component mounts
+    load(); 
   }, []);
 
   const openReserve = (slot) => {
     console.log("Open reserve modal for:", slot);
-    // Implement modal logic for slot reservation
   };
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
       <div className="space-y-4">
         <h1 className="text-xl font-semibold text-gray-800">Available Consultation Slots</h1>
-
         {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3">{error}</div>}
 
         {loading && (
@@ -121,7 +113,6 @@ export default function StudentDashboard({ user }) {
               </thead>
               <tbody>
                 {slots.map((slot) => {
-                  // Combine the days and times into a single string
                   const scheduleString = slot.schedules
                     .map(
                       (schedule) => `${schedule.day}: ${schedule.times.join(", ")}`
