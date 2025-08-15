@@ -16,7 +16,6 @@ export default function ProfessorDashboard({ user }) {
   });
   const [savingAvailability, setSavingAvailability] = useState(false);
 
-  // Load professor's appointments
   const load = async () => {
     if (!user) return;
     setLoading(true);
@@ -40,21 +39,18 @@ export default function ProfessorDashboard({ user }) {
   };
 
   useEffect(() => {
-    load();  // Load appointments
-    loadAvailability();  // Load availability from Firestore
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();  
+    loadAvailability();  
   }, [user]);
 
-  // Load professor's availability from Firestore
   const loadAvailability = async () => {
     if (!user) return;
     try {
-      const docRef = doc(db, "schedules", user.uid); // Use the user's UID to get their availability
+      const docRef = doc(db, "schedules", user.uid); 
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        setAvailability(docSnap.data()); // Set the availability state with the fetched data
+        setAvailability(docSnap.data()); 
       } else {
         console.log("No availability data found for this professor.");
       }
@@ -64,13 +60,11 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
-  // Set the status of appointments
   const setStatus = async (id, next) => {
     setError(null);
     setActingId(id);
     try {
       await updateDoc(doc(db, "appointments", id), { status: next });
-      // Optimistic local update
       setAppointments((prev) =>
         prev.map((a) => (a.id === id ? { ...a, status: next } : a))
       );
@@ -82,7 +76,6 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
-  // Add a time slot for availability
   const addTimeSlot = (day) => {
     setAvailability((prev) => ({
       ...prev,
@@ -96,14 +89,13 @@ export default function ProfessorDashboard({ user }) {
   const handleAvailabilityChange = (day, time, isChecked) => {
     setAvailability((prev) => {
       const updatedDay = isChecked
-        ? [...prev[day], time]  // Add AM/PM if checked
-        : prev[day].filter((slot) => slot !== time); // Remove AM/PM if unchecked
+        ? [...prev[day], time] 
+        : prev[day].filter((slot) => slot !== time); 
   
-      return { ...prev, [day]: updatedDay };  // Update availability for that day
+      return { ...prev, [day]: updatedDay }; 
     });
   };
 
-  // Handle time slot changes
   const handleTimeChange = (day, index, field, value) => {
     const updatedDay = [...availability[day]];
     updatedDay[index] = { ...updatedDay[index], [field]: value };
@@ -113,29 +105,26 @@ export default function ProfessorDashboard({ user }) {
   const handleSubmitAvailability = async () => {
     setSavingAvailability(true);
     try {
-      const professorRef = doc(db, "schedules", user.uid);  // Use schedules collection for availability
+      const professorRef = doc(db, "schedules", user.uid); 
   
-      // Create the data to save the professor's availability
       const availabilityData = { ...availability };
   
-      // Save or update availability data for the professor
       await setDoc(professorRef, availabilityData, { merge: true });
   
       alert("Availability saved successfully!");
     } catch (e) {
-      console.error("Error saving availability:", e);  // Log the error for debugging
+      console.error("Error saving availability:", e);  
       setError("Failed to save availability.");
     } finally {
       setSavingAvailability(false);
     }
   };
 
-  // Function to calculate the next available date based on the day and time
+
   const getNextDayOfWeek = (day, time) => {
     const today = new Date();
     const targetDate = new Date(today);
 
-    // Mapping days to numbers
     const daysOfWeek = {
       Sunday: 0,
       Monday: 1,
@@ -146,15 +135,12 @@ export default function ProfessorDashboard({ user }) {
       Saturday: 6,
     };
 
-    // Calculate the difference in days between today and the next selected day
     const targetDayNumber = daysOfWeek[day];
     const currentDayNumber = today.getDay();
 
-    // Calculate the number of days until the next target day (next Monday, etc.)
     const daysDifference = (targetDayNumber + 7 - currentDayNumber) % 7;
-    targetDate.setDate(today.getDate() + daysDifference); // Set the next target date
+    targetDate.setDate(today.getDate() + daysDifference); 
 
-    // Set the correct time (e.g., 13:00)
     const [hours, minutes] = time.split(":");
     targetDate.setHours(hours);
     targetDate.setMinutes(minutes);
@@ -269,7 +255,6 @@ export default function ProfessorDashboard({ user }) {
         <div key={day} className="p-4 border rounded">
         <h3 className="text-lg font-semibold mb-4">{day}</h3>
         <div className="flex flex-col gap-2 mb-4">
-            {/* AM Checkbox */}
             <label className="inline-flex items-center gap-2">
             <input
                 type="checkbox"
@@ -279,8 +264,6 @@ export default function ProfessorDashboard({ user }) {
             />
             <span>AM</span>
             </label>
-
-            {/* PM Checkbox */}
             <label className="inline-flex items-center gap-2">
             <input
                 type="checkbox"
