@@ -26,6 +26,9 @@ export default function ProfessorDashboard({ user }) {
   });
   const [savingAvailability, setSavingAvailability] = useState(false);
 
+  // NEW: modal state
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+
   // -------- Load reservations from "appt" --------
   const load = async () => {
     if (!user) return;
@@ -106,6 +109,7 @@ export default function ProfessorDashboard({ user }) {
       const professorRef = doc(db, "schedules", user.uid);
       await setDoc(professorRef, availability, { merge: true });
       alert("Availability saved successfully!");
+      setShowAvailabilityModal(false); // close modal after save
     } catch (e) {
       console.error("Error saving availability:", e);
       setError("Failed to save availability.");
@@ -117,7 +121,16 @@ export default function ProfessorDashboard({ user }) {
   // -------- UI --------
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
-      <h1 className="text-xl font-semibold text-gray-800 mb-4">Your Appointments</h1>
+      {/* Header with Set Availability button */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold text-gray-800">Your Appointments</h1>
+        <button
+          onClick={() => setShowAvailabilityModal(true)}
+          className="bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 rounded"
+        >
+          Set Availability
+        </button>
+      </div>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded p-3 mb-3">
@@ -132,7 +145,9 @@ export default function ProfessorDashboard({ user }) {
       {!loading && appointments.length === 0 && (
         <div className="bg-white border rounded-lg p-8 text-center">
           <p className="text-gray-700 font-medium">No booked appointments yet</p>
-          <p className="text-gray-500 text-sm mt-1">Pending or confirmed bookings will appear here.</p>
+          <p className="text-gray-500 text-sm mt-1">
+            Pending or confirmed bookings will appear here.
+          </p>
         </div>
       )}
 
@@ -229,43 +244,77 @@ export default function ProfessorDashboard({ user }) {
         </div>
       )}
 
-      {/* Availability section */}
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4">Set Your Availability</h2>
-      <div className="grid grid-cols-5 gap-4 mb-6">
-        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-          <div key={day} className="p-4 border rounded">
-            <h3 className="text-lg font-semibold mb-4">{day}</h3>
-            <div className="flex flex-col gap-2 mb-4">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={availability[day].includes("AM")}
-                  onChange={(e) => handleAvailabilityChange(day, "AM", e.target.checked)}
-                  className="form-checkbox"
-                />
-                <span>AM</span>
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={availability[day].includes("PM")}
-                  onChange={(e) => handleAvailabilityChange(day, "PM", e.target.checked)}
-                  className="form-checkbox"
-                />
-                <span>PM</span>
-              </label>
+      {/* Availability Modal */}
+      {showAvailabilityModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowAvailabilityModal(false)}
+          ></div>
+
+          {/* modal box */}
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Set Your Availability</h2>
+              <button
+                onClick={() => setShowAvailabilityModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="grid grid-cols-5 gap-4 mb-6">
+              {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
+                <div key={day} className="p-4 border rounded">
+                  <h3 className="text-lg font-semibold mb-4">{day}</h3>
+                  <div className="flex flex-col gap-2 mb-4">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={availability[day].includes("AM")}
+                        onChange={(e) =>
+                          handleAvailabilityChange(day, "AM", e.target.checked)
+                        }
+                        className="form-checkbox"
+                      />
+                      <span>AM</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={availability[day].includes("PM")}
+                        onChange={(e) =>
+                          handleAvailabilityChange(day, "PM", e.target.checked)
+                        }
+                        className="form-checkbox"
+                      />
+                      <span>PM</span>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowAvailabilityModal(false)}
+                className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitAvailability}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                disabled={savingAvailability}
+              >
+                {savingAvailability ? "Saving..." : "Save Availability"}
+              </button>
             </div>
           </div>
-        ))}
-      </div>
-
-      <button
-        onClick={handleSubmitAvailability}
-        className="bg-green-500 text-white p-3 rounded mt-4"
-        disabled={savingAvailability}
-      >
-        {savingAvailability ? "Saving..." : "Save Availability"}
-      </button>
+        </div>
+      )}
     </main>
   );
 }
