@@ -219,9 +219,44 @@ export default function ProfessorDashboard({ user }) {
       </thead>
       <tbody>
         {items.map((app) => {
-          const dtLabel = app.dateISO
-            ? `${app.dateISO} (${app.startTime} - ${app.endTime})`
-            : "—";
+          let dtLabel = "—";
+            if (app.dateISO) {
+              const dateObj = new Date(app.dateISO);
+
+              // Format the date → August 20, 2025
+              const formattedDate = dateObj.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              });
+
+              // Day of week → Wednesday
+              const weekday = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+
+              // Format times
+              const [sh, sm] = app.startTime.split(":").map(Number);
+              const [eh, em] = app.endTime.split(":").map(Number);
+
+              const start = new Date(dateObj);
+              start.setHours(sh, sm);
+
+              const end = new Date(dateObj);
+              end.setHours(eh, em);
+
+              const formattedStart = start.toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+
+              const formattedEnd = end.toLocaleTimeString("en-US", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+              });
+
+              dtLabel = `${formattedDate}\n(${weekday} - ${formattedStart} to ${formattedEnd})`;
+            }
           const thesisNote =
             app.consultationType === "Thesis/Capstone" && app.thesisTitle
               ? ` — ${app.thesisTitle}`
