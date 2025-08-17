@@ -271,7 +271,7 @@ export default function ProfessorDashboard({ user }) {
 
           return (
             <tr key={app.id} className="border-t">
-              <td className="px-4 py-3">{dtLabel}</td>
+              <td className="px-4 py-3 whitespace-pre-line">{dtLabel}</td>
               <td className="px-4 py-3">{app.studentName || "—"}</td>
               <td className="px-4 py-3">
                 <span className="text-gray-800">{app.consultationType}</span>
