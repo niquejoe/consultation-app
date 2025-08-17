@@ -6,6 +6,7 @@ import Login from "./Login";
 import logo from "./assets/img/logo.png";
 import StudentDashboard from "./StudentDashboard";
 import ProfessorDashboard from "./ProfessorDashboard";
+import AdminDashboard from "./AdminDashboard";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -83,6 +84,7 @@ function App() {
 
       {!loadingRole && role === "student" && <StudentDashboard user={user} />}
       {!loadingRole && role === "professor" && <ProfessorDashboard user={user} />}
+      {!loadingRole && role === "admin" && <AdminDashboard user={user} />}
     </div>
   );
 }
