@@ -213,7 +213,7 @@ export default function ProfessorDashboard({ user }) {
           ) : (
             <th className="px-4 py-3 text-left">Feedback / Comments</th>
           )}
-          <th className="px-4 py-3 text-left">Status</th>
+          {!showActions && <th className="px-4 py-3 text-left">Status</th>}
           {showActions && <th className="px-4 py-3 text-left">Actions</th>}
         </tr>
       </thead>
@@ -300,21 +300,22 @@ export default function ProfessorDashboard({ user }) {
                 </td>
               )}
 
-              <td className="px-4 py-3">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-                    ${app.status === "confirmed"
-                      ? "bg-green-100 text-green-700"
-                      : app.status === "pending"
-                      ? "bg-yellow-100 text-yellow-700"
-                      : app.status === "completed"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-gray-100 text-gray-700"}`}
-                >
-                  {app.status}
-                </span>
-              </td>
-
+              {!showActions && (
+                <td className="px-4 py-3">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+                      ${app.status === "confirmed"
+                        ? "bg-green-100 text-green-700"
+                        : app.status === "pending"
+                        ? "bg-yellow-100 text-yellow-700"
+                        : app.status === "completed"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-700"}`}
+                  >
+                    {app.status}
+                  </span>
+                </td>
+              )}
               {showActions && (
                 <td className="px-4 py-3">
                   {isPending && (
