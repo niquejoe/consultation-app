@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
-import { serverTimestamp } from "firebase/firestore";
 import {
   collection,
   getDocs,
@@ -11,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   getDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 
 export default function ProfessorDashboard({ user }) {
@@ -30,10 +30,28 @@ export default function ProfessorDashboard({ user }) {
   const [savingAvailability, setSavingAvailability] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
-  // NEW: modal state for completing consultation
+  // Modal state for completing consultation
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
   const [selectedAppId, setSelectedAppId] = useState(null);
+
+  // Modal state for viewing feedback
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [activeFeedback, setActiveFeedback] = useState("");
+
+  // ---- Helper: fetch student name ----
+  const fetchStudentName = async (uid) => {
+    if (!uid) return "—";
+    try {
+      const snap = await getDoc(doc(db, "users", uid));
+      if (snap.exists()) {
+        return snap.data().name || snap.data().email || "—";
+      }
+    } catch (e) {
+      console.error("Error fetching student name:", e);
+    }
+    return "—";
+  };
 
   // -------- Load active reservations from "appt" --------
   const load = async () => {
@@ -48,7 +66,13 @@ export default function ProfessorDashboard({ user }) {
         orderBy("dateISO", "desc")
       );
       const snapshot = await getDocs(q);
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const list = await Promise.all(
+        snapshot.docs.map(async (d) => {
+          const data = d.data();
+          const studentName = await fetchStudentName(data.requester?.uid);
+          return { id: d.id, ...data, studentName };
+        })
+      );
       setAppointments(list);
     } catch (e) {
       console.error(e);
@@ -70,7 +94,13 @@ export default function ProfessorDashboard({ user }) {
         orderBy("dateISO", "desc")
       );
       const snapshot = await getDocs(q);
-      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const list = await Promise.all(
+        snapshot.docs.map(async (d) => {
+          const data = d.data();
+          const studentName = await fetchStudentName(data.requester?.uid);
+          return { id: d.id, ...data, studentName };
+        })
+      );
       setHistory(list);
     } catch (e) {
       console.error("Error loading history:", e);
@@ -106,7 +136,6 @@ export default function ProfessorDashboard({ user }) {
     setActingId(id);
     try {
       await updateDoc(doc(db, "appt", id), { status: next });
-      // Refresh active + history after update
       await load();
       await loadHistory();
     } catch (e) {
@@ -131,7 +160,7 @@ export default function ProfessorDashboard({ user }) {
       await updateDoc(doc(db, "appt", selectedAppId), {
         status: "completed",
         feedback: completionNote,
-        completedAt: serverTimestamp(),   
+        completedAt: serverTimestamp(),
       });
       setShowCompleteModal(false);
       setSelectedAppId(null);
@@ -171,15 +200,19 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
-  // -------- Render table (shared) --------
+  // -------- Render table --------
   const renderTable = (items, showActions = true) => (
     <table className="min-w-full text-sm">
       <thead className="bg-gray-100 text-gray-700">
         <tr>
-          <th className="px-4 py-3 text-left">Date & Time</th>
-          <th className="px-4 py-3 text-left">Student</th>
+          <th className="px-4 py-3 text-left">Consultation Schedule</th>
+          <th className="px-4 py-3 text-left">Student Name</th>
           <th className="px-4 py-3 text-left">Consultation Type</th>
-          <th className="px-4 py-3 text-left">Booking</th>
+          {showActions ? (
+            <th className="px-4 py-3 text-left">Booking</th>
+          ) : (
+            <th className="px-4 py-3 text-left">Feedback / Comments</th>
+          )}
           <th className="px-4 py-3 text-left">Status</th>
           {showActions && <th className="px-4 py-3 text-left">Actions</th>}
         </tr>
@@ -189,7 +222,6 @@ export default function ProfessorDashboard({ user }) {
           const dtLabel = app.dateISO
             ? `${app.dateISO} (${app.startTime} - ${app.endTime})`
             : "—";
-          const studentEmail = app.requester?.email || "—";
           const thesisNote =
             app.consultationType === "Thesis/Capstone" && app.thesisTitle
               ? ` — ${app.thesisTitle}`
@@ -205,12 +237,34 @@ export default function ProfessorDashboard({ user }) {
           return (
             <tr key={app.id} className="border-t">
               <td className="px-4 py-3">{dtLabel}</td>
-              <td className="px-4 py-3">{studentEmail}</td>
+              <td className="px-4 py-3">{app.studentName || "—"}</td>
               <td className="px-4 py-3">
                 <span className="text-gray-800">{app.consultationType}</span>
                 {thesisNote && <span className="text-gray-500">{thesisNote}</span>}
               </td>
-              <td className="px-4 py-3">{typeLabel}</td>
+
+              {/* Booking type (Active) or Feedback (History) */}
+              {showActions ? (
+                <td className="px-4 py-3">{typeLabel}</td>
+              ) : (
+                <td className="px-4 py-3 text-center">
+                  {app.feedback ? (
+                    <button
+                      onClick={() => {
+                        setActiveFeedback(app.feedback);
+                        setShowFeedbackModal(true);
+                      }}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="View feedback"
+                    >
+                      💬
+                    </button>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+              )}
+
               <td className="px-4 py-3">
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
@@ -225,6 +279,7 @@ export default function ProfessorDashboard({ user }) {
                   {app.status}
                 </span>
               </td>
+
               {showActions && (
                 <td className="px-4 py-3">
                   {isPending && (
@@ -357,7 +412,29 @@ export default function ProfessorDashboard({ user }) {
         </div>
       )}
 
-      {/* Availability Modal (same as before) */}
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowFeedbackModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">Feedback / Comments</h2>
+            <p className="text-gray-700 whitespace-pre-line">{activeFeedback || "No comments"}</p>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Availability Modal */}
       {showAvailabilityModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
