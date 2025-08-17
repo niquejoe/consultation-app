@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { db } from "./firebaseConfig";
+import { serverTimestamp } from "firebase/firestore";
 import {
   collection,
   getDocs,
@@ -130,7 +131,7 @@ export default function ProfessorDashboard({ user }) {
       await updateDoc(doc(db, "appt", selectedAppId), {
         status: "completed",
         feedback: completionNote,
-        completedAt: new Date().toISOString(),
+        completedAt: serverTimestamp(),   
       });
       setShowCompleteModal(false);
       setSelectedAppId(null);
