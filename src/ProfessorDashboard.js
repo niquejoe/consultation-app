@@ -35,6 +35,10 @@ export default function ProfessorDashboard({ user }) {
   const [completionNote, setCompletionNote] = useState("");
   const [selectedAppId, setSelectedAppId] = useState(null);
 
+  // Modal state for rejection
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   // Modal state for viewing feedback
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [activeFeedback, setActiveFeedback] = useState("");
@@ -62,7 +66,7 @@ export default function ProfessorDashboard({ user }) {
       const q = query(
         collection(db, "appt"),
         where("professorId", "==", user.uid),
-        where("status", "in", ["pending", "confirmed", "rejected"]),
+        where("status", "in", ["pending", "confirmed"]),
         orderBy("dateISO", "desc")
       );
       const snapshot = await getDocs(q);
@@ -82,7 +86,7 @@ export default function ProfessorDashboard({ user }) {
     }
   };
 
-  // -------- Load history (completed consultations) --------
+  // -------- Load history (completed or rejected consultations) --------
   const loadHistory = async () => {
     if (!user) return;
     setLoadingHistory(true);
@@ -90,7 +94,7 @@ export default function ProfessorDashboard({ user }) {
       const q = query(
         collection(db, "appt"),
         where("professorId", "==", user.uid),
-        where("status", "==", "completed"),
+        where("status", "in", ["completed", "rejected"]),
         orderBy("dateISO", "desc")
       );
       const snapshot = await getDocs(q);
@@ -131,11 +135,16 @@ export default function ProfessorDashboard({ user }) {
   };
 
   // -------- Update reservation status --------
-  const setStatus = async (id, next) => {
+  const setStatus = async (id, next, reason = "") => {
     setError(null);
     setActingId(id);
     try {
-      await updateDoc(doc(db, "appt", id), { status: next });
+      const updateData = { status: next };
+      if (next === "rejected") {
+        updateData.rejectionReason = reason;
+        updateData.rejectedAt = serverTimestamp();
+      }
+      await updateDoc(doc(db, "appt", id), updateData);
       await load();
       await loadHistory();
     } catch (e) {
@@ -170,6 +179,29 @@ export default function ProfessorDashboard({ user }) {
     } catch (e) {
       console.error(e);
       setError("Failed to mark as completed.");
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  // -------- Open reject modal --------
+  const handleReject = (id) => {
+    setSelectedAppId(id);
+    setRejectionReason("");
+    setShowRejectModal(true);
+  };
+
+  const saveRejection = async () => {
+    if (!selectedAppId) return;
+    setActingId(selectedAppId);
+    try {
+      await setStatus(selectedAppId, "rejected", rejectionReason);
+      setShowRejectModal(false);
+      setSelectedAppId(null);
+      setRejectionReason("");
+    } catch (e) {
+      console.error("Failed to reject:", e);
+      setError("Failed to reject appointment.");
     } finally {
       setActingId(null);
     }
@@ -220,43 +252,38 @@ export default function ProfessorDashboard({ user }) {
       <tbody>
         {items.map((app) => {
           let dtLabel = "—";
-            if (app.dateISO) {
-              const dateObj = new Date(app.dateISO);
+          if (app.dateISO) {
+            const dateObj = new Date(app.dateISO);
+            const formattedDate = dateObj.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+            const weekday = dateObj.toLocaleDateString("en-US", { weekday: "long" });
 
-              // Format the date → August 20, 2025
-              const formattedDate = dateObj.toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              });
+            const [sh, sm] = app.startTime.split(":").map(Number);
+            const [eh, em] = app.endTime.split(":").map(Number);
 
-              // Day of week → Wednesday
-              const weekday = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+            const start = new Date(dateObj);
+            start.setHours(sh, sm);
 
-              // Format times
-              const [sh, sm] = app.startTime.split(":").map(Number);
-              const [eh, em] = app.endTime.split(":").map(Number);
+            const end = new Date(dateObj);
+            end.setHours(eh, em);
 
-              const start = new Date(dateObj);
-              start.setHours(sh, sm);
+            const formattedStart = start.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
+            const formattedEnd = end.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
 
-              const end = new Date(dateObj);
-              end.setHours(eh, em);
+            dtLabel = `${formattedDate}\n(${weekday} - ${formattedStart} to ${formattedEnd})`;
+          }
 
-              const formattedStart = start.toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-
-              const formattedEnd = end.toLocaleTimeString("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              });
-
-              dtLabel = `${formattedDate}\n(${weekday} - ${formattedStart} to ${formattedEnd})`;
-            }
           const thesisNote =
             app.consultationType === "Thesis/Capstone" && app.thesisTitle
               ? ` — ${app.thesisTitle}`
@@ -283,14 +310,14 @@ export default function ProfessorDashboard({ user }) {
                 <td className="px-4 py-3">{typeLabel}</td>
               ) : (
                 <td className="px-4 py-3 text-center">
-                  {app.feedback ? (
+                  {app.feedback || app.rejectionReason ? (
                     <button
                       onClick={() => {
-                        setActiveFeedback(app.feedback);
+                        setActiveFeedback(app.feedback || app.rejectionReason);
                         setShowFeedbackModal(true);
                       }}
                       className="text-blue-600 hover:text-blue-800"
-                      title="View feedback"
+                      title="View comments"
                     >
                       💬
                     </button>
@@ -310,12 +337,15 @@ export default function ProfessorDashboard({ user }) {
                         ? "bg-yellow-100 text-yellow-700"
                         : app.status === "completed"
                         ? "bg-blue-100 text-blue-700"
+                        : app.status === "rejected"
+                        ? "bg-red-100 text-red-700"
                         : "bg-gray-100 text-gray-700"}`}
                   >
                     {app.status}
                   </span>
                 </td>
               )}
+
               {showActions && (
                 <td className="px-4 py-3">
                   {isPending && (
@@ -333,7 +363,7 @@ export default function ProfessorDashboard({ user }) {
                       </button>
                       <button
                         disabled={disabled}
-                        onClick={() => setStatus(app.id, "rejected")}
+                        onClick={() => handleReject(app.id)}
                         className={`rounded-md px-3 py-1.5 text-sm border transition ${
                           disabled
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -405,7 +435,7 @@ export default function ProfessorDashboard({ user }) {
         <div className="bg-white border rounded-lg p-6 text-gray-600">Loading history…</div>
       ) : history.length === 0 ? (
         <div className="bg-white border rounded-lg p-8 text-center">
-          <p className="text-gray-700 font-medium">No completed consultations yet</p>
+          <p className="text-gray-700 font-medium">No consultations yet</p>
         </div>
       ) : (
         <div className="overflow-x-auto bg-white border rounded-lg mb-6">
@@ -442,6 +472,41 @@ export default function ProfessorDashboard({ user }) {
                 disabled={actingId === selectedAppId}
               >
                 {actingId === selectedAppId ? "Saving..." : "Save & Complete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowRejectModal(false)}
+          ></div>
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">Reject Consultation</h2>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Provide a reason for rejection..."
+              className="w-full border rounded p-2 mb-4"
+              rows={4}
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveRejection}
+                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                disabled={actingId === selectedAppId}
+              >
+                {actingId === selectedAppId ? "Saving..." : "Reject"}
               </button>
             </div>
           </div>
