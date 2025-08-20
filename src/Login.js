@@ -23,7 +23,7 @@ export default function Login() {
     <div className="login-container">
       <form onSubmit={handleLogin} className="login-form">
         <img src={logo} alt="CICT Logo" className="login-logo" />
-        <h2 className="login-title">CICT Consultation WebApp - Barnakol</h2>
+        <h2 className="login-title">CICT Consultation WebApp</h2>
 
         <input
           type="email"
